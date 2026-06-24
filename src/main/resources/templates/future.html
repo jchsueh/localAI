@@ -7,6 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
         /* --- 深海軍藍 (Deep Navy) 漸層美化版 --- */
         :root {
@@ -79,7 +80,7 @@
             top: 0;
             right: 0;
             height: 100vh;
-            width: 380px;
+            width: 500px;
             z-index: 200;
             display: flex;
             flex-direction: column;
@@ -121,7 +122,7 @@
             box-shadow: -4px 0 24px rgba(59, 130, 246, 0.4);
         }
         #chat-toggle-btn.open {
-            right: 380px;
+            right: 500px;
         }
 
         /* 對話訊息樣式 */
@@ -158,6 +159,51 @@
             padding: 1px 6px;
             font-size: 0.75rem;
             font-family: monospace;
+        }
+        /* Markdown 內容樣式美化 */
+        .chat-msg-ai p {
+            margin-bottom: 0.5rem;
+        }
+        .chat-msg-ai p:last-child {
+            margin-bottom: 0;
+        }
+        .chat-msg-ai ul {
+            list-style-type: disc;
+            margin-left: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .chat-msg-ai ol {
+            list-style-type: decimal;
+            margin-left: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .chat-msg-ai li {
+            margin-bottom: 0.25rem;
+        }
+        .chat-msg-ai pre {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin: 0.5rem 0;
+            overflow-x: auto;
+            font-family: monospace;
+            font-size: 0.8rem;
+        }
+        .chat-msg-ai code {
+            font-family: monospace;
+            background: rgba(59, 130, 246, 0.15);
+            color: #93c5fd;
+            padding: 2px 4px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+        .chat-msg-ai pre code {
+            background: transparent;
+            color: inherit;
+            padding: 0;
+            border-radius: 0;
+            font-size: inherit;
         }
 
         /* 打字動畫 */
@@ -887,7 +933,7 @@
             const aiEl = document.createElement('div');
             aiEl.className = 'chat-msg-ai';
             if (result.status === 'success') {
-                aiEl.innerHTML = result.response.replace(/\n/g, '<br>');
+                aiEl.innerHTML = marked.parse(result.response);
             } else {
                 aiEl.innerHTML = `⚠️ <strong class="text-red-400">連線失敗：</strong>${result.response}`;
             }

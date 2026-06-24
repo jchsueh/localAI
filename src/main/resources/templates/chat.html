@@ -5,8 +5,123 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ollama Chat</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+    <style>
+        /* --- 科技美感優化 --- */
+        body {
+            background: linear-gradient(135deg, #0b1329 0%, #1a233a 50%, #0b1329 100%) !important;
+            background-attachment: fixed;
+        }
+        .chat-container {
+            background-color: rgba(15, 23, 42, 0.45) !important;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        header {
+            background-color: rgba(15, 23, 42, 0.8) !important;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            padding: 15px 25px !important;
+        }
+        h1 {
+            color: #ffffff;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-shadow: 0 0 10px rgba(59, 130, 246, 0.3);
+            flex: 0 1 auto !important; /* 避免 h1 撐滿 */
+        }
+        
+        /* 導覽列 */
+        .nav-links {
+            display: flex;
+            gap: 8px;
+            margin-left: 20px;
+            flex: 1;
+            flex-wrap: wrap;
+        }
+        .nav-item {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.85rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+        .nav-item i {
+            font-size: 0.95rem;
+        }
+        .nav-item:hover {
+            color: #60a5fa;
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.25);
+            transform: translateY(-1px);
+        }
+        .nav-item.active {
+            color: #ffffff;
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+            border-color: rgba(59, 130, 246, 0.3);
+            box-shadow: 0 4px 15px rgba(29, 78, 216, 0.35);
+        }
+
+        /* 訊息氣泡優化 */
+        .user-message {
+            background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+            box-shadow: 0 4px 15px rgba(29, 78, 216, 0.25);
+            border-radius: 16px 16px 4px 16px !important;
+        }
+        .ai-message {
+            background-color: rgba(30, 41, 59, 0.75) !important;
+            border: 1px solid rgba(59, 130, 246, 0.15) !important;
+            border-radius: 16px 16px 16px 4px !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+        .chat-input-area {
+            background-color: rgba(15, 23, 42, 0.9) !important;
+            border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+        }
+        .input-container {
+            background-color: rgba(30, 41, 59, 0.8) !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            border-radius: 12px !important;
+        }
+        .input-container textarea {
+            color: #f1f5f9 !important;
+        }
+        .icon-btn {
+            background-color: rgba(30, 41, 59, 0.6) !important;
+            border: 1px solid rgba(255, 255, 255, 0.05) !important;
+            border-radius: 8px !important;
+        }
+        .icon-btn:hover {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+            border-color: rgba(59, 130, 246, 0.3) !important;
+        }
+        .config-btn {
+            background-color: rgba(30, 41, 59, 0.8) !important;
+            border: 1px solid rgba(59, 130, 246, 0.2) !important;
+            border-radius: 8px !important;
+        }
+        .config-btn:hover {
+            background-color: rgba(59, 130, 246, 0.15) !important;
+        }
+        #agent-select {
+            background-color: rgba(15, 23, 42, 0.9) !important;
+            border: 1px solid rgba(59, 130, 246, 0.2) !important;
+            border-radius: 8px !important;
+            color: white !important;
+            padding: 8px 12px !important;
+            font-size: 0.9rem !important;
+            margin: 10px 25px 0 25px !important;
+            align-self: flex-start;
+        }
+    </style>
 </head>
 <body>
 <div class="chat-container">
@@ -16,6 +131,15 @@
 
     <header>
         <h1>Ollama Chat</h1>
+        <div class="nav-links">
+            <a href="/chat" class="nav-item active"><i class="fas fa-comments"></i> 智能對話</a>
+            <a href="/future" class="nav-item"><i class="fas fa-robot"></i> AIOps 監控中心</a>
+            <a href="/dashboard" class="nav-item"><i class="fas fa-tachometer-alt"></i> 儀表板</a>
+            <a href="/monitor" class="nav-item"><i class="fas fa-server"></i> 系統監控</a>
+            <a href="/mt" class="nav-item"><i class="fas fa-network-wired"></i> 拓樸圖</a>
+            <a href="/infinite" class="nav-item"><i class="fas fa-flask"></i> 鍊金術</a>
+            <a href="/weather" class="nav-item"><i class="fas fa-cloud-sun"></i> 天氣監控</a>
+        </div>
         <div class="header-controls">
             <button id="search-button" class="icon-btn" title="搜尋對話 (Ctrl+/)">🔍</button>
             <button id="stats-button" class="icon-btn" title="使用統計">📊</button>
