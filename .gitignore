@@ -60,3 +60,6 @@ tmp/
 
 # Anti-Gravity Installation Pack
 antigravity-lazy-pack-main/
+
+# Local secrets and configuration profiles
+**/application-local.properties

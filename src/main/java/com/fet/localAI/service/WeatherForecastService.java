@@ -26,7 +26,7 @@ public class WeatherForecastService {
     public WeatherForecastService(
             RestTemplateBuilder restTemplateBuilder,
             ObjectMapper objectMapper,
-            @Value("${cwa.api.key:CWA-5C3CCB9A-4002-41C6-9E9C-76ACF7006141}") String apiKey) {
+            @Value("${cwa.api.key:}") String apiKey) {
         this.restTemplate = restTemplateBuilder.build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
