@@ -170,6 +170,25 @@ public class OllamaService {
         return response;
     }
 
+    public String generateJsonResponse(String message, String chatId) {
+        initializeConfig();
+
+        List<Message> history = chatHistory.computeIfAbsent(chatId, k -> new ArrayList<>());
+
+        history.add(new UserMessage(message));
+
+        OllamaOptions options = OllamaOptions.builder()
+                .model(currentModel)
+                .format("json")
+                .build();
+
+        Prompt prompt = new Prompt(history, options);
+        String response = chatModel.call(prompt).getResult().getOutput().getText();
+
+        history.add(new AssistantMessage(response));
+        return response;
+    }
+
     private boolean isAskingForDate(String message) {
         String lowerMessage = message.toLowerCase();
         return lowerMessage.contains("今天") || lowerMessage.contains("日期") ||

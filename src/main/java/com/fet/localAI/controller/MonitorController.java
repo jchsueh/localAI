@@ -77,9 +77,9 @@ public class MonitorController {
                     The output must start with { and end with }.
                     """;
 
-            // 呼叫 OllamaService 生成回應
+            // 呼叫 OllamaService 生成回應 (使用 JSON 模式)
             String fullPrompt = systemInstruction + "\n\n" + message;
-            String response = ollamaService.generateResponse(fullPrompt, chatId);
+            String response = ollamaService.generateJsonResponse(fullPrompt, chatId);
 
             return Map.of(
                     "status", "success",
