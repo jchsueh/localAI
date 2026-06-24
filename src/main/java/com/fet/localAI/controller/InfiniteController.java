@@ -40,7 +40,7 @@ public class InfiniteController {
      * 處理鍊金術合成請求
      * 前端會發送包含合成邏輯的 prompt
      */
-     @GetMapping("/chat")
+     @GetMapping("/api/infinite/chat")
      @ResponseBody
      public String chat(@RequestParam String message, HttpSession session) {
          try {

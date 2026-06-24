@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Agent 運維監控中心 (AIOps 滿血最終版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+        /* --- 深海軍藍 (Deep Navy) 漸層美化版 --- */
+        :root {
+            /* 定義深海軍藍色系的漸層端點 */
+            --navy-dark: #040b16;      /* 極深的海軍藍 (接近黑，作為邊緣) */
+            --navy-light: #112240;     /* 亮一點的海軍藍 (作為光源) */
+            
+            --bg-panel: rgba(17, 34, 64, 0.65); /* 面板改為半透明海軍藍，讓背景漸層透出來 */
+            --border-panel: rgba(45, 66, 100, 0.5);   
+            
+            --neon-green: #22c55e;
+            --neon-red: #ef4444;
+            --neon-cyan: #06b6d4;
+            --text-main: #e2e8f0;
+        }
+
+        /* 整個網頁背景改為深海軍藍的對角線漸層 */
+        body { 
+            background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-light) 50%, var(--navy-dark) 100%) !important;
+            background-attachment: fixed; /* 確保滾動時背景漸層固定不動 */
+            color: var(--text-main); 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+
+        /* 調整面板，加上細微的漸層與毛玻璃，完美襯托 Deep Navy 底色 */
+        .glass-panel { 
+            background: linear-gradient(145deg, rgba(20, 36, 60, 0.75) 0%, rgba(8, 16, 28, 0.85) 100%);
+            backdrop-filter: blur(8px); /* 微弱的毛玻璃效果 */
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid var(--border-panel); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        /* 互動卡片效果優化：滑過時透出更亮的海軍藍 */
+        .stat-card { transition: all 0.3s ease; cursor: pointer; }
+        .stat-card:hover { 
+            transform: scale(1.02) translateY(-2px); 
+            border-color: #3b82f6; 
+            background: rgba(30, 58, 138, 0.4); 
+            box-shadow: 0 8px 25px rgba(0,0,0,0.5); 
+        }
+
+        /* 右側任務流卡片 Hover 效果 */
+        .stream-card { transition: all 0.3s ease; }
+        .stream-card:hover { 
+            transform: translateY(-2px); 
+            border-color: rgba(96, 165, 250, 0.6); 
+            box-shadow: 0 6px 24px rgba(0,0,0,0.4); 
+        }
+        
+        /* Modal 彈出視窗動畫 */
+        .modal-overlay { transition: opacity 0.3s ease; }
+        .modal-content { transition: transform 0.3s ease; }
+        
+        /* 自訂滾動條：融入深海軍藍主題 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(4, 11, 22, 0.5); }
+        ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; border: 1px solid #040b16; }
+        ::-webkit-scrollbar-thumb:hover { background: #2d5482; }
+
+        /* SVG 虛線流動動畫 (拓樸圖專用) */
+        @keyframes dash { to { stroke-dashoffset: -20; } }
+        .animate-dash { animation: dash 1s linear infinite; }
+        @keyframes slow-dash { to { stroke-dashoffset: -40; } }
+        .animate-slow-dash { animation: slow-dash 2s linear infinite; }
+
+        /* ===== AI 對話框 Drawer ===== */
+        #ai-chat-drawer {
+            position: fixed;
+            top: 0;
+            right: 0;
+            height: 100vh;
+            width: 380px;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(160deg, rgba(10, 20, 40, 0.97) 0%, rgba(5, 12, 28, 0.98) 100%);
+            border-left: 1px solid rgba(59, 130, 246, 0.25);
+            box-shadow: -8px 0 40px rgba(0,0,0,0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            transform: translateX(100%);
+            transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #ai-chat-drawer.open {
+            transform: translateX(0);
+        }
+
+        /* 側邊觸發按鈕 */
+        #chat-toggle-btn {
+            position: fixed;
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+            z-index: 201;
+            transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f2d52 100%);
+            border: 1px solid rgba(96, 165, 250, 0.4);
+            border-right: none;
+            border-radius: 12px 0 0 12px;
+            padding: 14px 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            box-shadow: -4px 0 20px rgba(59, 130, 246, 0.2);
+            writing-mode: vertical-rl;
+        }
+        #chat-toggle-btn:hover {
+            background: linear-gradient(135deg, #2d5282 0%, #1a3a6e 100%);
+            box-shadow: -4px 0 24px rgba(59, 130, 246, 0.4);
+        }
+        #chat-toggle-btn.open {
+            right: 380px;
+        }
+
+        /* 對話訊息樣式 */
+        .chat-msg-user {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+            color: #e2e8f0;
+            border-radius: 16px 16px 4px 16px;
+            padding: 10px 14px;
+            max-width: 78%;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+        }
+        .chat-msg-ai {
+            align-self: flex-start;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+            color: #cbd5e1;
+            border-radius: 16px 16px 16px 4px;
+            padding: 10px 14px;
+            max-width: 85%;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .chat-msg-ai strong { color: #93c5fd; }
+        .chat-msg-ai .tag {
+            display: inline-block;
+            background: rgba(59,130,246,0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59,130,246,0.3);
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: 0.75rem;
+            font-family: monospace;
+        }
+
+        /* 打字動畫 */
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        .typing-dot { animation: blink 1s infinite; }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* 輸入區 */
+        #chat-input {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            color: #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+        #chat-input:focus { border-color: rgba(96, 165, 250, 0.6); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+        #chat-input::placeholder { color: #475569; }
+
+        /* 快速提示標籤 */
+        .quick-tag {
+            background: rgba(30, 58, 138, 0.3);
+            border: 1px solid rgba(96, 165, 250, 0.25);
+            color: #93c5fd;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .quick-tag:hover {
+            background: rgba(30, 58, 138, 0.6);
+            border-color: rgba(96, 165, 250, 0.5);
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <header class="glass-panel px-6 py-4 flex justify-between items-center z-10 shadow-lg">
+        <div class="flex items-center space-x-3">
+            <i class="fas fa-robot text-blue-400 text-3xl drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]"></i>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider text-white">AI Ops Agent</h1>
+                <p class="text-xs text-blue-400 font-mono">NEXT-GEN INFRASTRUCTURE ORCHESTRATOR</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4 text-sm">
+            <span class="bg-blue-900/40 text-blue-300 px-4 py-1.5 rounded-full border border-blue-700/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+                <i class="fas fa-satellite-dish mr-2 animate-pulse"></i> 企業全網監控中
+            </span>
+            <div class="w-10 h-10 bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-700 transition">
+                <i class="fas fa-user text-gray-300"></i>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden p-6 space-x-6">
+        
+        <aside class="w-[28%] space-y-6 flex flex-col overflow-y-auto pr-3 pb-6">
+            
+            <div>
+                <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-server text-gray-500 mr-2"></i>Infrastructure</h2>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div onclick="showDetails('hosts-running', '運行中主機清單')" class="glass-panel p-4 rounded-xl flex flex-col justify-center items-center stat-card border-b-2 border-blue-500">
+                        <i class="fas fa-cube text-blue-400 text-xl mb-1"></i>
+                        <span id="stat-hosts-running" class="text-2xl font-bold text-white">128</span>
+                        <span class="text-xs text-gray-400 mt-1">運行中</span>
+                    </div>
+                    
+                    <div onclick="showDetails('hosts-down', '斷線中主機清單')" class="glass-panel p-4 rounded-xl flex flex-col justify-center items-center stat-card border-b-2 border-red-500 bg-red-900/10">
+                        <i class="fas fa-ban text-red-400 text-xl mb-1"></i>
+                        <span id="stat-hosts-down" class="text-2xl font-bold text-red-400">14</span>
+                        <span class="text-xs text-gray-400 mt-1">異常斷線</span>
+                    </div>
+                </div>
+                <div onclick="showDetails('network-warning', '網路品質預警清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-teal-500 bg-teal-900/10">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 flex items-center justify-center bg-teal-900/30 rounded-lg text-teal-400"><i class="fas fa-wifi"></i></div>
+                        <span class="text-sm">網路品質衰退預警</span>
+                    </div>
+                    <span id="stat-network-warning" class="text-xl font-bold text-teal-400">1</span>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-chart-line text-gray-500 mr-2"></i>Performance & Capacity</h2>
+                <div class="space-y-3">
+                    <div onclick="showDetails('metrics-normal', '正常監控指標清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-green-500">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 flex items-center justify-center bg-green-900/30 rounded-lg text-green-400"><i class="fas fa-check"></i></div>
+                            <span class="text-sm">健康指標</span>
+                        </div>
+                        <span id="stat-metrics-normal" class="text-xl font-bold text-green-400">842</span>
+                    </div>
+
+                    <div onclick="showDetails('metrics-abnormal', '異常監控指標清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-orange-500 bg-orange-900/10">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 flex items-center justify-center bg-orange-900/30 rounded-lg text-orange-400"><i class="fas fa-exclamation-circle"></i></div>
+                            <span class="text-sm">效能瓶頸預警</span>
+                        </div>
+                        <span id="stat-metrics-abnormal" class="text-xl font-bold text-orange-400">24</span>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-shield-halved text-gray-500 mr-2"></i>Security & Compliance</h2>
+                <div class="space-y-3">
+                    <div onclick="showDetails('security-alerts', '資安威脅清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-purple-500 bg-purple-900/10">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 flex items-center justify-center bg-purple-900/30 rounded-lg text-purple-400"><i class="fas fa-biohazard border-purple-400"></i></div>
+                            <span class="text-sm">主動防禦攔截</span>
+                        </div>
+                        <span id="stat-security-alerts" class="text-xl font-bold text-purple-400 animate-pulse">3</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <section class="flex-1 overflow-y-auto pr-2 space-y-5 pb-10" id="task-stream">
+            <div class="flex justify-between items-end mb-2 border-b border-gray-700 pb-3 sticky top-0 bg-[#0B1120] z-20 pt-2">
+                <h2 class="text-2xl font-bold text-white drop-shadow-md">AI 自動調度任務流</h2>
+                <span class="text-sm text-blue-400 bg-blue-900/30 px-3 py-1 rounded-full"><i class="fas fa-layer-group mr-1"></i>已收斂為 5 項核心處置</span>
+            </div>
+
+            <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-purple-500 relative" id="task-sec">
+                <div class="absolute top-4 right-4 bg-purple-500/20 text-purple-300 text-xs px-2 py-1 rounded font-mono shadow-[0_0_8px_rgba(168,85,247,0.4)]">URGENT: SECURITY</div>
+                <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-shield-virus mr-2 text-purple-400"></i>偵測到內部主機橫向攻擊 (勒索病毒防禦)</h3>
+                <p class="text-sm text-gray-300 mb-4">
+                    AI 行為分析：分析防火牆與 EDR 日誌，發現 `HR-Desktop-04` 正頻繁利用 RDP 與 SMB 協定，對同網段另外 42 臺主機進行異常掃描與連線測試。
+                </p>
+                <div class="flex space-x-3">
+                    <button onclick="resolveTask('task-sec', 'purple')" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(147,51,234,0.4)]">
+                        <i class="fas fa-lock mr-2"></i>授權 AI 執行網路隔離
+                    </button>
+                    <button onclick="showGraphModal('security')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                        <i class="fas fa-project-diagram mr-2"></i>查看行為軌跡圖
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-teal-500 relative" id="task-pl">
+                <div class="absolute top-4 right-4 bg-teal-500/20 text-teal-300 text-xs px-2 py-1 rounded font-mono shadow-[0_0_8px_rgba(20,184,166,0.4)]">PREDICTIVE MAINTENANCE</div>
+                <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-wave-square mr-2 text-teal-400"></i>跨廠區專線 Packet Loss 持續惡化預警</h3>
+                <p class="text-sm text-gray-300 mb-4">
+                    AI 網路預測模型：偵測到 `HQ-to-Branch-VPN` 的 Ping 封包遺失率在過去 6 小時內攀升至 4%。根據趨勢預測，<strong>72 小時內將引發嚴重斷線 (Loss > 15%)</strong>。
+                </p>
+                <div class="bg-black/40 rounded-lg p-4 mb-4 border border-teal-900/50">
+                    <h4 class="text-xs text-teal-400 uppercase mb-2 font-bold tracking-wider">AI 預防性繞流 SOP (準備就緒)</h4>
+                    <ol class="text-sm space-y-2 text-gray-300 list-decimal list-inside">
+                        <li>自動將關鍵 ERP 流量繞流 (Reroute) 至備援 SD-WAN 線路。</li>
+                        <li>針對異常 ISP 線路發起自動化 MTR 檢測。</li>
+                        <li>自動向 ISP 供應商 API 發送障礙申告單 (Ticket)。</li>
+                    </ol>
+                </div>
+                <div class="flex space-x-3">
+                    <button onclick="resolveTask('task-pl', 'teal')" class="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(20,184,166,0.4)]">
+                        <i class="fas fa-route mr-2"></i>授權 AI 執行流量繞流與報修
+                    </button>
+                    <button onclick="showGraphModal('packet_loss')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                        <i class="fas fa-chart-line mr-2"></i>查看 Packet Loss 預測圖
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-yellow-500 relative" id="task-cap">
+                <div class="absolute top-4 right-4 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-1 rounded font-mono">PREDICTIVE WARNING</div>
+                <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-database mr-2 text-yellow-400"></i>核心資料庫儲存空間即將耗盡</h3>
+                <p class="text-sm text-gray-300 mb-4">
+                    AI 趨勢預測：因逢電商大檔期，預測 `Order-DB-Primary` 的磁碟空間將於 <strong>45 分鐘後完全耗盡</strong>。AI 已備妥雲端擴容腳本。
+                </p>
+                <div class="flex space-x-3">
+                    <button onclick="resolveTask('task-cap', 'yellow')" class="bg-yellow-600 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(202,138,4,0.4)]">
+                        <i class="fas fa-arrow-up-right-dots mr-2"></i>授權 AI 執行線上擴容
+                    </button>
+                    <button onclick="showGraphModal('capacity')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                        <i class="fas fa-chart-area mr-2"></i>查看用量趨勢圖
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-red-500 relative" id="task-net">
+                <div class="absolute top-4 right-4 bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded font-mono">CRITICAL</div>
+                <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-network-wired mr-2 text-red-400"></i>核心交換機路由崩潰導致批次斷線</h3>
+                <p class="text-sm text-gray-300 mb-4">AI 根因分析：偵測到 14 個設備主機同時失去連線。經分析網路拓樸，確認為 `tgw-core-01` 節點的 BGP 路由表溢位導致崩潰。</p>
+                <div class="flex space-x-3">
+                    <button onclick="resolveTask('task-net', 'red')" class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(220,38,38,0.4)]">
+                        <i class="fas fa-tools mr-2"></i>一鍵重啟 BGP 路由進程
+                    </button>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-orange-500 relative" id="task-app">
+                <div class="absolute top-4 right-4 bg-orange-500/20 text-orange-400 text-xs px-2 py-1 rounded font-mono">HIGH PRIORITY</div>
+                <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-layer-group mr-2 text-orange-400"></i>API 閘道服務崩潰 (已收斂 18 個異常指標)</h3>
+                <p class="text-sm text-gray-300 mb-4">
+                    AI 根因分析：在 24 個異常監控項目中，有 18 個皆源自於 `API-Gateway-01` 服務記憶體洩漏 (Memory Leak)。建議直接將流量切換至備援節點並重啟。
+                </p>
+                <div class="flex space-x-3">
+                    <button onclick="resolveTask('task-app', 'orange')" class="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(234,88,12,0.4)]">
+                        <i class="fas fa-exchange-alt mr-2"></i>授權 AI 切換備援與重啟
+                    </button>
+                    <button onclick="showGraphModal('api_topology')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                        <i class="fas fa-sitemap mr-2"></i>查看微服務相依拓樸圖
+                    </button>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <div id="detail-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 modal-overlay">
+        <div class="bg-[#1E293B] border border-gray-600 rounded-xl shadow-2xl w-full max-w-4xl transform scale-95 modal-content" id="list-modal-box">
+            <div class="flex justify-between items-center p-5 border-b border-gray-700 bg-gray-800/50 rounded-t-xl">
+                <h3 class="text-xl font-bold text-white flex items-center" id="modal-title">清單標題</h3>
+                <button onclick="closeModal('detail-modal', 'list-modal-box')" class="text-gray-400 hover:text-white transition-colors bg-gray-700 p-2 rounded-full w-8 h-8 flex items-center justify-center">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+            <div class="p-2 max-h-[65vh] overflow-y-auto">
+                <table class="w-full text-left text-sm text-gray-300">
+                    <thead class="text-xs uppercase bg-gray-900/50 text-gray-400 sticky top-0 backdrop-blur-md">
+                        <tr>
+                            <th class="px-5 py-4 rounded-tl-lg font-bold">標的 (Target)</th>
+                            <th class="px-5 py-4 font-bold">詳細資訊 / 數值</th>
+                            <th class="px-5 py-4 font-bold">當前狀態</th>
+                            <th class="px-5 py-4 rounded-tr-lg font-bold">AI 處置狀態</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-table-body" class="divide-y divide-gray-700/30">
+                        <!-- 動態填充 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // 1. 後端 API 指標與清單串接 (動態讀取)
+        // ==========================================
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/future/stats');
+                const stats = await response.json();
+                
+                document.getElementById('stat-hosts-running').innerText = stats['hosts-running'];
+                document.getElementById('stat-hosts-down').innerText = stats['hosts-down'];
+                document.getElementById('stat-network-warning').innerText = stats['network-warning'];
+                document.getElementById('stat-metrics-normal').innerText = stats['metrics-normal'];
+                document.getElementById('stat-metrics-abnormal').innerText = stats['metrics-abnormal'];
+                document.getElementById('stat-security-alerts').innerText = stats['security-alerts'];
+            } catch (err) {
+                console.error('Failed to load stats:', err);
+            }
+        }
+
+        async function loadTasks() {
+            try {
+                const response = await fetch('/api/future/tasks');
+                const activeTasks = await response.json();
+                const activeIds = new Set(activeTasks.map(t => t.id));
+                
+                const allTaskIds = ['task-sec', 'task-pl', 'task-cap', 'task-net', 'task-app'];
+                
+                allTaskIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        if (!activeIds.has(id)) {
+                            el.remove();
+                        }
+                    }
+                });
+                
+                checkEmpty();
+            } catch (err) {
+                console.error('Failed to load tasks:', err);
+            }
+        }
+
+        // ==========================================
+        // 2. 清單 Table Modal 邏輯 (向後端查詢)
+        // ==========================================
+        async function showDetails(type, title) {
+            let icon = '';
+            if(type.includes('hosts')) icon = '<i class="fas fa-server text-blue-400 mr-3"></i>';
+            if(type.includes('network-warning')) icon = '<i class="fas fa-wifi text-teal-400 mr-3"></i>';
+            if(type.includes('metrics')) icon = '<i class="fas fa-chart-line text-green-400 mr-3"></i>';
+            if(type.includes('security')) icon = '<i class="fas fa-shield-halved text-purple-400 mr-3"></i>';
+            
+            document.getElementById('modal-title').innerHTML = icon + title;
+            const tbody = document.getElementById('modal-table-body');
+            tbody.innerHTML = ''; 
+            
+            try {
+                const response = await fetch('/api/future/details?type=' + type);
+                const data = await response.json();
+                
+                data.forEach(item => {
+                    let statusBadge = item.ai_status;
+                    if (item.ai_status.includes('已納入')) {
+                        statusBadge = `<span class="bg-blue-900/60 text-blue-300 px-3 py-1 rounded-full text-xs border border-blue-700/50 shadow-sm"><i class="fas fa-magic mr-1.5"></i>${item.ai_status}</span>`;
+                    } else if (item.ai_status.includes('獨立告警')) {
+                        statusBadge = `<span class="bg-orange-900/60 text-orange-300 px-3 py-1 rounded-full text-xs border border-orange-700/50"><i class="fas fa-exclamation-triangle mr-1.5"></i>${item.ai_status}</span>`;
+                    } else {
+                        statusBadge = `<span class="text-gray-500 px-2 py-1 text-xs"><i class="fas fa-check text-gray-600 mr-1.5"></i>${item.ai_status}</span>`;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-gray-700/40 transition-colors">
+                            <td class="px-5 py-4 font-semibold text-gray-200 border-b border-gray-700/30">${item.name}</td>
+                            <td class="px-5 py-4 text-gray-400 border-b border-gray-700/30">${item.detail}</td>
+                            <td class="px-5 py-4 text-gray-300 border-b border-gray-700/30 font-medium">${item.status}</td>
+                            <td class="px-5 py-4 border-b border-gray-700/30">${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) {
+                console.error('Failed to load details:', err);
+            }
+
+            const modal = document.getElementById('detail-modal');
+            const box = document.getElementById('list-modal-box');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+        }
+
+        function closeModal(modalId, boxId) {
+            const modal = document.getElementById(modalId);
+            const box = document.getElementById(boxId);
+            modal.classList.add('opacity-0');
+            box.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        }
+
+        document.querySelectorAll('.modal-overlay').forEach(overlay => {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) { closeModal(this.id, this.querySelector('.modal-content').id); }
+            });
+        });
+
+        // ==========================================
+        // Toast 浮動通知系統
+        // ==========================================
+        function showToast(title, message) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-[#0B172A] border border-green-500/50 p-4 rounded-xl shadow-[0_4px_20px_rgba(34,197,94,0.2)] flex items-start space-x-3 transform transition-all duration-300 translate-y-10 opacity-0 pointer-events-auto min-w-[300px] max-w-md';
+            toast.innerHTML = `
+                <div class="mt-0.5 text-green-400 drop-shadow-[0_0_5px_rgba(34,197,94,0.8)]"><i class="fas fa-check-circle text-xl"></i></div>
+                <div class="flex-1">
+                    <h4 class="text-white font-bold text-sm tracking-wide">${title}</h4>
+                    <p class="text-gray-400 text-xs mt-1 leading-relaxed">${message}</p>
+                </div>
+            `;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // ==========================================
+        // 任務完成與 AI 授權執行 (與後端同步)
+        // ==========================================
+        async function resolveTask(taskId, colorClass) {
+            const el = document.getElementById(taskId);
+            const btn = el.querySelector('button');
+            const taskTitle = el.querySelector('h3').innerText;
+            
+            // 1. 顯示處理中
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i>AI 執行中...';
+            btn.className = `bg-${colorClass}-800 text-white px-6 py-2 rounded-lg text-sm font-medium cursor-wait opacity-80`;
+            
+            try {
+                const response = await fetch(`/api/future/tasks/${taskId}/resolve`, { method: 'POST' });
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    // 2. 模擬 1.5 秒後執行完畢
+                    setTimeout(() => {
+                        btn.innerHTML = '<i class="fas fa-check mr-2"></i>任務已完成';
+                        btn.className = 'bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-[0_0_15px_rgba(34,197,94,0.5)] transition-all duration-300';
+                        el.classList.replace(`border-${colorClass}-500`, 'border-green-500');
+                        showToast('AI 自動化處置成功', `已順利排除：${taskTitle}`);
+
+                        // 3. 卡片滑出
+                        setTimeout(async () => {
+                            el.style.transform = 'translateX(120%)';
+                            el.style.opacity = '0';
+                            setTimeout(() => {
+                                el.remove();
+                                checkEmpty();
+                            }, 400);
+                            await loadStats(); // 重新讀取側邊指標統計
+                        }, 1200);
+                    }, 1500);
+                } else {
+                    btn.innerHTML = '執行失敗';
+                    showToast('處置失敗', result.message);
+                }
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = '連線失敗';
+                showToast('連線失敗', '無法與後端伺服器進行通訊');
+            }
+        }
+
+        function checkEmpty() {
+            const stream = document.getElementById('task-stream');
+            if (stream.querySelectorAll('.stream-card').length === 0) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'glass-panel p-12 text-center rounded-xl text-gray-400 mt-10 border border-green-900/30 bg-green-900/10 shadow-[0_0_30px_rgba(34,197,94,0.1)]';
+                emptyMsg.innerHTML = '<i class="fas fa-shield-check text-6xl text-green-500 mb-6 block drop-shadow-md"></i><h3 class="text-2xl font-bold text-white mb-2">系統狀態完美 (All Green)</h3><p class="text-lg">目前無任何待辦任務，AI 特助持續為您守護基礎架構。</p>';
+                stream.appendChild(emptyMsg);
+            }
+        }
+
+        // ==========================================
+        // 4. 圖表與拓樸圖邏輯 (Chart.js & Topology)
+        // ==========================================
+        let currentChart = null;
+
+        function showGraphModal(type) {
+            const modal = document.getElementById('graph-modal');
+            const box = document.getElementById('graph-modal-box');
+            const titleEl = document.getElementById('graph-title');
+            const container = document.getElementById('graph-container');
+            
+            container.innerHTML = '';
+            if (currentChart) { currentChart.destroy(); }
+
+            if (type === 'capacity') {
+                titleEl.innerHTML = '<i class="fas fa-chart-area text-yellow-400 mr-3"></i> 磁碟空間用量預測模型 (Order-DB-Primary)';
+                const canvas = document.createElement('canvas'); container.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+                currentChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: ['-3h', '-2h', '-1h', '現在', '+15m', '+30m (預測)', '+45m (耗盡)'],
+                        datasets: [
+                            { label: '歷史實際用量 (%)', data: [65, 70, 82, 96, null, null, null], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderWidth: 3, fill: true, tension: 0.4 },
+                            { label: 'AI 爆發預測軌跡', data: [null, null, null, 96, 98, 99.5, 100], borderColor: '#ef4444', borderDash: [5, 5], borderWidth: 3, tension: 0.4, pointBackgroundColor: '#ef4444', pointRadius: 5 },
+                            { label: 'AI 建議擴容後水位', data: [null, null, null, 96, 49, 49.7, 50], borderColor: '#22c55e', borderWidth: 3, tension: 0.4 }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, color: '#94a3b8', plugins: { legend: { labels: { font: { size: 14 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { max: 100, min: 0, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { grid: { color: 'rgba(255,255,255,0.05)' } } } }
+                });
+
+            } else if (type === 'packet_loss') {
+                titleEl.innerHTML = '<i class="fas fa-wave-square text-teal-400 mr-3"></i> 跨廠區專線 Packet Loss 預測模型 (HQ-to-Branch-VPN)';
+                const canvas = document.createElement('canvas'); container.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+                
+                const thresholdLinePlugin = {
+                    id: 'thresholdLine',
+                    beforeDraw: chart => {
+                        const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+                        const yPos = y.getPixelForValue(15); 
+                        ctx.save(); ctx.beginPath(); ctx.moveTo(left, yPos); ctx.lineTo(right, yPos);
+                        ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; ctx.setLineDash([5, 5]);
+                        ctx.stroke(); ctx.fillStyle = 'rgba(239, 68, 68, 0.8)'; ctx.fillText('應用層嚴重斷線門檻 (15%)', left + 10, yPos - 10); ctx.restore();
+                    }
+                };
+
+                currentChart = new Chart(ctx, {
+                    type: 'line', plugins: [thresholdLinePlugin],
+                    data: {
+                        labels: ['-14天', '-7天', '-3天', '-1天', '現在', '+1天', '+2天', '+3天 (崩潰)'],
+                        datasets: [
+                            { label: '歷史實際 Loss (%)', data: [0.1, 0.5, 1.2, 2.5, 4.0, null, null, null], borderColor: '#14b8a6', backgroundColor: 'rgba(20, 184, 166, 0.1)', borderWidth: 3, fill: true, tension: 0.3 },
+                            { label: 'AI 惡化趨勢預測', data: [null, null, null, null, 4.0, 8.5, 12.0, 16.5], borderColor: '#f59e0b', borderDash: [5, 5], borderWidth: 3, tension: 0.3, pointBackgroundColor: '#f59e0b', pointRadius: 5 },
+                            { label: 'AI 繞流後恢復水準', data: [null, null, null, null, 4.0, 0.1, 0.1, 0.1], borderColor: '#3b82f6', borderWidth: 3, tension: 0.3 }
+                        ]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, color: '#94a3b8', plugins: { legend: { labels: { font: { size: 14 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { max: 20, min: 0, grid: { color: 'rgba(255,255,255,0.1)' }, title: { display: true, text: 'Packet Loss 遺失率 %', color: '#94a3b8' } }, x: { grid: { color: 'rgba(255,255,255,0.05)' } } } }
+                });
+
+            } else if (type === 'security') {
+                titleEl.innerHTML = '<i class="fas fa-project-diagram text-purple-400 mr-3"></i> 異常行為擴散軌跡 (Ransomware Lateral Movement)';
+                container.innerHTML = `
+                    <div class="w-full flex items-center justify-between px-10 relative">
+                        <div class="flex flex-col items-center z-10 w-48">
+                            <div class="w-20 h-20 bg-gray-900 border-2 border-red-500/50 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.3)] mb-3 relative"><i class="fas fa-globe text-red-500 text-3xl"></i></div>
+                            <span class="text-white font-bold">Malicious IP</span><span class="text-xs text-red-400 mt-1 font-mono">114.32.*.*</span>
+                        </div>
+                        <div class="flex-1 h-1 bg-red-900/50 relative"><svg class="absolute inset-0 w-full h-full"><line x1="0" y1="2" x2="100%" y2="2" stroke="#ef4444" stroke-width="3" stroke-dasharray="10, 5" class="animate-dash" /></svg></div>
+                        <div class="flex flex-col items-center z-10 w-48">
+                            <div class="w-24 h-24 bg-gray-900 border-2 border-purple-500 rounded-lg flex items-center justify-center shadow-[0_0_30px_rgba(168,85,247,0.5)] mb-3 animate-pulse"><i class="fas fa-desktop text-purple-400 text-4xl"></i></div>
+                            <span class="text-white font-bold">HR-Desktop-04</span><span class="text-xs text-purple-400 mt-1 font-mono">內部感染源</span>
+                        </div>
+                        <div class="flex-1 h-1 bg-gray-700 relative flex items-center justify-center">
+                            <svg class="absolute inset-0 w-1/2 h-full"><line x1="0" y1="2" x2="100%" y2="2" stroke="#a855f7" stroke-width="3" stroke-dasharray="8, 4" class="animate-dash" /></svg>
+                            <div class="z-20 bg-blue-900 border-2 border-blue-400 p-2 rounded-full shadow-[0_0_20px_rgba(96,165,250,0.8)]"><i class="fas fa-shield-alt text-blue-300 text-2xl"></i></div>
+                            <span class="absolute -top-10 left-1/2 transform -translate-x-1/2 text-xs bg-blue-900 text-blue-300 px-3 py-1.5 rounded-full border border-blue-500 whitespace-nowrap"><i class="fas fa-bolt mr-1 text-yellow-300"></i> AI 主動隔離網段</span>
+                        </div>
+                        <div class="flex flex-col items-center z-10 w-48 opacity-60">
+                            <div class="w-20 h-20 bg-gray-800 border-2 border-green-500/50 rounded-full flex items-center justify-center mb-3"><i class="fas fa-server text-green-500 text-3xl"></i></div>
+                            <span class="text-gray-300 font-bold">AD-Controller</span><span class="text-xs text-green-500 mt-1"><i class="fas fa-check-circle mr-1"></i>安全未受害</span>
+                        </div>
+                    </div>
+                `;
+            } else if (type === 'api_topology') {
+                titleEl.innerHTML = '<i class="fas fa-sitemap text-orange-400 mr-3"></i> 微服務相依拓樸與瓶頸 analysis (Root Cause Analysis)';
+                container.innerHTML = `
+                    <div class="w-full flex items-center justify-center space-x-12 relative px-8">
+                        <div class="flex flex-col items-center z-10 w-32">
+                            <div class="w-20 h-20 bg-gray-800 border-2 border-blue-400 rounded-full flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(96,165,250,0.4)]">
+                                <i class="fas fa-users text-blue-400 text-3xl"></i>
+                            </div>
+                            <span class="text-gray-200 font-bold text-sm mb-1">外部請求流量</span>
+                            <span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded border border-blue-700">10k req/sec</span>
+                        </div>
+
+                        <div class="flex-1 h-1 bg-blue-900/50 relative min-w-[60px]">
+                            <svg class="absolute inset-0 w-full h-full"><line x1="0" y1="2" x2="100%" y2="2" stroke="#60a5fa" stroke-width="3" stroke-dasharray="8, 5" class="animate-slow-dash" /></svg>
+                        </div>
+
+                        <div class="flex flex-col items-center z-10 w-56 relative">
+                            <div class="absolute -top-14 flex space-x-2">
+                                <span class="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded border border-red-500 shadow-lg animate-bounce" style="animation-delay: 0.1s">HTTP 500</span>
+                                <span class="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded border border-red-500 shadow-lg animate-bounce" style="animation-delay: 0.3s">OOM (98%)</span>
+                            </div>
+                            <div class="w-28 h-28 bg-gray-900 border-4 border-orange-500 rounded-2xl flex items-center justify-center shadow-[0_0_35px_rgba(249,115,22,0.6)] mb-3 relative animate-pulse">
+                                <i class="fas fa-layer-group text-orange-400 text-5xl"></i>
+                                <div class="absolute -bottom-2 -right-2 bg-red-600 rounded-full w-8 h-8 flex items-center justify-center border-2 border-gray-900 shadow-lg">
+                                    <i class="fas fa-times text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <span class="text-white font-bold text-lg">API-Gateway-01</span>
+                            <span class="text-xs text-orange-400 mt-1 font-mono bg-orange-900/30 px-2 py-0.5 rounded">Memory Leak Detected</span>
+                        </div>
+
+                        <div class="w-20 h-48 flex flex-col justify-between relative">
+                            <svg class="absolute top-0 left-0 w-full h-1/2"><path d="M 0 100 Q 40 100 50 50 T 100 0" fill="transparent" stroke="#4b5563" stroke-width="2" stroke-dasharray="4" class="animate-dash"/></svg>
+                            <svg class="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2"><line x1="0" y1="2" x2="100%" y2="2" stroke="#4b5563" stroke-width="2" stroke-dasharray="4" class="animate-dash"/></svg>
+                            <svg class="absolute bottom-0 left-0 w-full h-1/2"><path d="M 0 0 Q 40 0 50 50 T 100 100" fill="transparent" stroke="#4b5563" stroke-width="2" stroke-dasharray="4" class="animate-dash"/></svg>
+                        </div>
+
+                        <div class="flex flex-col space-y-5 z-10 w-52">
+                            <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-id-card text-green-400 text-lg"></i></div>
+                                <div class="flex flex-col"><span class="text-gray-200 text-sm font-bold">Auth-Service</span><span class="text-xs text-green-500 mt-0.5"><i class="fas fa-check-circle mr-1"></i>正常 (25ms)</span></div>
+                            </div>
+                            <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-box text-green-400 text-lg"></i></div>
+                                <div class="flex flex-col"><span class="text-gray-200 text-sm font-bold">Order-Service</span><span class="text-xs text-green-500 mt-0.5"><i class="fas fa-check-circle mr-1"></i>正常 (42ms)</span></div>
+                            </div>
+                            <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-credit-card text-green-400 text-lg"></i></div>
+                                <div class="flex flex-col"><span class="text-gray-200 text-sm font-bold">Payment-Service</span><span class="text-xs text-green-500 mt-0.5"><i class="fas fa-check-circle mr-1"></i>正常 (38ms)</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="absolute bottom-6 w-full text-center">
+                        <p class="text-gray-300 text-sm bg-gray-900/60 inline-block px-6 py-2 rounded-full border border-gray-700 backdrop-blur-sm">
+                            <i class="fas fa-info-circle text-blue-400 mr-2"></i>AI 診斷結論：後端微服務群組皆運作正常，18 個連線異常指標皆收斂於 <strong class="text-orange-400">API-Gateway-01</strong> 實例的資源耗盡。
+                        </p>
+                    </div>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+        }
+    </script>en-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-id-card text-green-400 text-lg"></i></div>
+                                <div class="flex flex-col"><span class="text-gray-200 text-sm font-bold">Auth-Service</span><span class="text-xs text-green-500 mt-0.5"><i class="fas fa-check-circle mr-1"></i>正常 (25ms)</span></div>
+                            </div>
+                            <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-box text-green-400 text-lg"></i></div>
+                                <div class="flex flex-col"><span class="text-gray-200 text-sm font-bold">Order-Service</span><span class="text-xs text-green-500 mt-0.5"><i class="fas fa-check-circle mr-1"></i>正常 (42ms)</span></div>
+                            </div>
+                            <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]">
+                                <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-credit-card text-green-400 text-lg"></i></div>
+                                <div class="flex flex-col"><span class="text-gray-200 text-sm font-bold">Payment-Service</span><span class="text-xs text-green-500 mt-0.5"><i class="fas fa-check-circle mr-1"></i>正常 (38ms)</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="absolute bottom-6 w-full text-center">
+                        <p class="text-gray-300 text-sm bg-gray-900/60 inline-block px-6 py-2 rounded-full border border-gray-700 backdrop-blur-sm">
+                            <i class="fas fa-info-circle text-blue-400 mr-2"></i>AI 診斷結論：後端微服務群組皆運作正常，18 個連線異常指標皆收斂於 <strong class="text-orange-400">API-Gateway-01</strong> 實例的資源耗盡。
+                        </p>
+                    </div>
+                `;
+            }
+
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+        }
+    </script>
+	<div id="toast-container" class="fixed bottom-6 right-6 z-[100] flex flex-col space-y-3 pointer-events-none"></div>
+
+    <!-- ===== AI 對話框觸發按鈕 ===== -->
+    <div id="chat-toggle-btn" onclick="toggleChatDrawer()" title="AI 助理">
+        <i class="fas fa-robot text-blue-400 text-lg"></i>
+        <span style="writing-mode:vertical-rl; font-size:0.7rem; color:#93c5fd; letter-spacing:0.1em; font-weight:600;">AI 助理</span>
+        <i id="chat-toggle-arrow" class="fas fa-chevron-left text-blue-400 text-xs"></i>
+    </div>
+
+    <!-- ===== AI 對話框 Drawer ===== -->
+    <div id="ai-chat-drawer">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-blue-900/40" style="background: rgba(8,16,32,0.8);">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-full bg-blue-900/50 border border-blue-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(96,165,250,0.3)]">
+                    <i class="fas fa-robot text-blue-400 text-base"></i>
+                </div>
+                <div>
+                    <p class="text-sm font-bold text-white">AIOps 智能助理</p>
+                    <p class="text-xs text-green-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse"></span> 線上中</p>
+                </div>
+            </div>
+            <button onclick="clearChat()" title="清除對話" class="text-gray-500 hover:text-gray-300 transition text-xs px-2 py-1 rounded border border-gray-700 hover:border-gray-500">
+                <i class="fas fa-trash-alt mr-1"></i>清除
+            </button>
+        </div>
+
+        <!-- 對話區 -->
+        <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3" style="scroll-behavior: smooth;">
+            <!-- 初始歡迎訊息 -->
+            <div class="chat-msg-ai">
+                👋 您好！我是 <strong>AIOps 智能助理</strong>，已與您的監控系統完整整合。<br><br>
+                您可以詢問我：<br>
+                • 當前異常事件的詳細分析<br>
+                • 特定主機 / 服務的健康狀況<br>
+                • AI 自動處置的執行建議<br>
+                • 歷史事件的根因報告
+            </div>
+            <div class="text-center text-xs text-gray-600 my-1">今日 — 剛剛</div>
+        </div>
+
+        <!-- 快速標籤 -->
+        <div class="px-4 pb-2">
+            <div class="flex flex-wrap gap-2 mb-3">
+                <span class="quick-tag" onclick="sendQuickMsg('目前有哪些高優先級告警？')">🔴 高優先告警</span>
+                <span class="quick-tag" onclick="sendQuickMsg('API-Gateway-01 的狀況如何？')">⚡ API 閘道狀態</span>
+                <span class="quick-tag" onclick="sendQuickMsg('請給我今日資安威脅摘要')">🔒 資安摘要</span>
+                <span class="quick-tag" onclick="sendQuickMsg('預測未來 24 小時的風險')">📊 風險預測</span>
+            </div>
+        </div>
+
+        <!-- 輸入區 -->
+        <div class="px-4 pb-5 border-t border-blue-900/30 pt-3" style="background: rgba(8,16,32,0.5);">
+            <div class="flex gap-2 items-end">
+                <textarea id="chat-input" rows="2" placeholder="輸入訊息，詢問系統狀況…" class="flex-1"
+                    onkeydown="handleChatKey(event)"></textarea>
+                <button onclick="sendChatMessage()" 
+                    class="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors shadow-[0_4px_15px_rgba(37,99,235,0.4)] flex-shrink-0"
+                    style="margin-bottom: 2px;">
+                    <i class="fas fa-paper-plane text-sm"></i>
+                </button>
+            </div>
+            <p class="text-xs text-gray-600 mt-2 text-center">按 Enter 送出 · Shift+Enter 換行</p>
+        </div>
+    </div>
+
+    <script>
+    // ===== AI 對話框邏輯 =====
+    let chatOpen = false;
+
+    function toggleChatDrawer() {
+        chatOpen = !chatOpen;
+        const drawer = document.getElementById('ai-chat-drawer');
+        const btn = document.getElementById('chat-toggle-btn');
+        const arrow = document.getElementById('chat-toggle-arrow');
+        drawer.classList.toggle('open', chatOpen);
+        btn.classList.toggle('open', chatOpen);
+        arrow.className = chatOpen
+            ? 'fas fa-chevron-right text-blue-400 text-xs'
+            : 'fas fa-chevron-left text-blue-400 text-xs';
+    }
+
+    function handleChatKey(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendChatMessage();
+        }
+    }
+
+    function sendQuickMsg(text) {
+        document.getElementById('chat-input').value = text;
+        sendChatMessage();
+    }
+
+    async function clearChat() {
+        try {
+            const response = await fetch('/api/future/chat/clear', { method: 'POST' });
+            const result = await response.json();
+            const msgs = document.getElementById('chat-messages');
+            msgs.innerHTML = `
+                <div class="chat-msg-ai">${result.message || '對話已清除。有什麼我可以幫您分析的嗎？'}</div>
+                <div class="text-center text-xs text-gray-600 my-1">剛剛</div>
+            `;
+        } catch (err) {
+            console.error('Failed to clear chat:', err);
+            const msgs = document.getElementById('chat-messages');
+            msgs.innerHTML = `
+                <div class="chat-msg-ai text-red-400">⚠️ 清除對話紀錄時發生錯誤。</div>
+            `;
+        }
+    }
+
+    async function sendChatMessage() {
+        const input = document.getElementById('chat-input');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+
+        const msgs = document.getElementById('chat-messages');
+
+        // 加入使用者訊息
+        const userEl = document.createElement('div');
+        userEl.className = 'chat-msg-user';
+        userEl.textContent = text;
+        msgs.appendChild(userEl);
+
+        // 打字中動畫
+        const typingEl = document.createElement('div');
+        typingEl.className = 'chat-msg-ai flex items-center gap-1';
+        typingEl.innerHTML = `<span class="typing-dot text-blue-400 text-lg">●</span><span class="typing-dot text-blue-400 text-lg">●</span><span class="typing-dot text-blue-400 text-lg">●</span>`;
+        msgs.appendChild(typingEl);
+        msgs.scrollTop = msgs.scrollHeight;
+
+        try {
+            const response = await fetch('/api/future/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: new URLSearchParams({ message: text })
+            });
+            const result = await response.json();
+            
+            typingEl.remove();
+            
+            const aiEl = document.createElement('div');
+            aiEl.className = 'chat-msg-ai';
+            if (result.status === 'success') {
+                aiEl.innerHTML = result.response.replace(/\n/g, '<br>');
+            } else {
+                aiEl.innerHTML = `⚠️ <strong class="text-red-400">連線失敗：</strong>${result.response}`;
+            }
+            msgs.appendChild(aiEl);
+            msgs.scrollTop = msgs.scrollHeight;
+        } catch (err) {
+            console.error('Failed to send chat message:', err);
+            typingEl.remove();
+            const aiEl = document.createElement('div');
+            aiEl.className = 'chat-msg-ai text-red-400';
+            aiEl.innerHTML = `⚠️ 連線錯誤，無法與 AI 助理通訊。`;
+            msgs.appendChild(aiEl);
+            msgs.scrollTop = msgs.scrollHeight;
+        }
+    }
+
+    // 頁面初始化載入
+    document.addEventListener('DOMContentLoaded', () => {
+        loadStats();
+        loadTasks();
+    });
+    </script>
+</body>
+</html>

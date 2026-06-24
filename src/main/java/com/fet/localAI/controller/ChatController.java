@@ -31,7 +31,7 @@ public class ChatController {
         this.agentService = agentService;
     }
 
-    @GetMapping("/")
+    @GetMapping({"/", "/chat"})
     public String chatPage() {
         return "chat";
     }
