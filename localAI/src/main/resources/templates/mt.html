@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIOps 全域戰情室 | Global Overwatch</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --bg-card: #1e1e1e;
+            --text-main: #e0e0e0;
+            --text-muted: #888;
+            --accent: #00bcd4;
+            --success: #4CAF50;
+            --warning: #FFC107;
+            --danger: #FF5252;
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', 'Roboto', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            overflow-y: scroll;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-bottom: 50px;
+        }
+
+        /* --- Header --- */
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: end;
+            margin-bottom: 30px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.5;
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        /* --- KPI Grid --- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            background: var(--bg-card);
+            padding: 25px;
+            border-radius: 16px;
+            border: var(--glass-border);
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .kpi-title {
+            font-size: 0.85em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+
+        .kpi-value {
+            font-size: 3em;
+            font-weight: 700;
+            margin: 10px 0;
+            letter-spacing: -1px;
+        }
+
+        .kpi-sub {
+            font-size: 0.8em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .kpi-card.total {
+            border-top: 4px solid var(--accent);
+        }
+
+        .kpi-card.crit {
+            border-top: 4px solid var(--danger);
+        }
+
+        .kpi-card.warn {
+            border-top: 4px solid var(--warning);
+        }
+
+        .kpi-card.healthy {
+            border-top: 4px solid var(--success);
+        }
+
+        /* --- Insights Section --- */
+        .insights-section {
+            display: grid;
+            grid-template-columns: 2fr 1.2fr;
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        @media (max-width: 900px) {
+            .insights-section {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Chart Card */
+        .chart-card {
+            background: var(--bg-card);
+            padding: 30px;
+            border-radius: 16px;
+            border: var(--glass-border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            cursor: pointer;
+            transition: 0.2s;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .bar-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .bar-label {
+            width: 140px;
+            font-size: 0.9em;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .bar-count {
+            width: 40px;
+            text-align: right;
+            font-weight: bold;
+            font-family: 'Consolas', monospace;
+        }
+
+        /* AI Summary Card */
+        .ai-summary-card {
+            background: linear-gradient(160deg, #1e1e1e 0%, #2a2a2a 100%);
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: border-color 0.5s ease;
+        }
+
+        .ai-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .ai-avatar {
+            font-size: 2.5em;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 12px;
+        }
+
+        /* Active Context Area (Interactive Tags) */
+        .active-context-area {
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #444;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .active-tag {
+            background: var(--accent);
+            color: #000;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            animation: slideIn 0.3s ease;
+        }
+
+        .active-tag-remove {
+            cursor: pointer;
+            opacity: 0.6;
+            font-size: 1.1em;
+            line-height: 1;
+        }
+
+        .active-tag-remove:hover {
+            opacity: 1;
+            color: #fff;
+        }
+
+        .ai-text {
+            line-height: 1.7;
+            color: #dcdcdc;
+            font-size: 0.95em;
+            font-family: 'Consolas', 'Microsoft JhengHei', monospace;
+            /* 移除 white-space: pre-wrap; 以支援 Markdown 渲染 */
+            height: 180px;
+            overflow-y: auto;
+            padding-right: 10px;
+            scroll-behavior: smooth;
+            flex-grow: 1;
+        }
+
+        /* Markdown Styles within AI Text */
+        .ai-text h1,
+        .ai-text h2,
+        .ai-text h3 {
+            color: var(--accent);
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .ai-text strong {
+            color: #fff;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 0 4px;
+            border-radius: 3px;
+        }
+
+        .ai-text ul,
+        .ai-text ol {
+            margin: 10px 0;
+            padding-left: 20px;
+            color: #ccc;
+        }
+
+        .ai-text li {
+            margin-bottom: 5px;
+        }
+
+        .ai-text p {
+            margin-bottom: 10px;
+        }
+
+        /* Scrollbar */
+        .ai-text::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .ai-text::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+
+        .ai-text::-webkit-scrollbar-thumb {
+            background: #555;
+            border-radius: 3px;
+        }
+
+        .ai-text::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        .ai-tags-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 15px;
+            min-height: 30px;
+        }
+
+        /* Tag Styles */
+        .ai-tag {
+            background: rgba(0, 188, 212, 0.15);
+            color: var(--accent);
+            border: 1px solid rgba(0, 188, 212, 0.3);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 500;
+            animation: fadeIn 0.5s ease;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .ai-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+            filter: brightness(1.2);
+        }
+
+        .ai-tag:active {
+            transform: scale(0.95);
+        }
+
+        .btn-ai {
+            margin-top: 20px;
+            background: transparent;
+            border: 1px solid #666;
+            color: #ccc;
+            padding: 8px 20px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9em;
+            width: 100%;
+        }
+
+        .btn-ai:hover:not(:disabled) {
+            border-color: var(--accent);
+            color: var(--accent);
+            background: rgba(0, 188, 212, 0.05);
+        }
+
+        .btn-ai:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        /* --- Host Grid --- */
+        .section-title {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-title::before {
+            content: '';
+            display: block;
+            width: 4px;
+            height: 20px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .host-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 15px;
+        }
+
+        .host-card {
+            background: var(--bg-card);
+            padding: 18px;
+            border-radius: 12px;
+            border: 1px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .host-card:hover {
+            transform: translateY(-3px);
+            background: #2a2a2a;
+            border-color: #444;
+        }
+
+        .host-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .host-title {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1em;
+            margin-bottom: 2px;
+        }
+
+        .host-ip {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            font-family: monospace;
+        }
+
+        .host-elements {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+        }
+
+        .element-badge {
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: #333;
+            color: #aaa;
+            border: 1px solid #444;
+        }
+
+        .metric-badge {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: 700;
+            font-family: monospace;
+            align-self: flex-start;
+        }
+
+        .s-crit {
+            background: rgba(255, 82, 82, 0.15);
+            color: var(--danger);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+        }
+
+        .s-warn {
+            background: rgba(255, 193, 7, 0.15);
+            color: var(--warning);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+        }
+
+        .s-ok {
+            background: rgba(76, 175, 80, 0.15);
+            color: var(--success);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+        }
+
+        /* 動畫效果 */
+        .fade-in {
+            animation: fadeInContent 0.5s ease-in-out;
+        }
+
+        @keyframes fadeInContent {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(5px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="header-section">
+            <div>
+                <h1 style="margin: 0; font-weight: 300; font-size: 2em;">AIOps <span
+                        style="font-weight: 700;">全域戰情室</span></h1>
+                <p style="color: var(--text-muted); margin: 8px 0 0 0; font-size: 0.9em;">
+                    區域: <span style="color: #fff;">AWS 東京</span> |
+                    AI 引擎: <span style="color: var(--accent);">Llama 3.2</span>
+                </p>
+            </div>
+            <div style="text-align: right;">
+                <div
+                    style="font-size: 0.85em; color: var(--text-muted); display: flex; align-items: center; justify-content: flex-end;">
+                    <span class="status-dot"></span> 系統監控中
+                </div>
+                <div style="font-size: 0.8em; margin-top: 5px; color: #555;">下次更新於 <span id="countdown">300</span> 秒
+                </div>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="kpi-card total">
+                <div class="kpi-title">主機總數</div>
+                <div class="kpi-value" id="total-hosts">0</div>
+                <div class="kpi-sub" style="color: var(--accent);">● 100% 連線正常</div>
+            </div>
+            <div class="kpi-card crit">
+                <div class="kpi-title">嚴重告警 (Critical)</div>
+                <div class="kpi-value" id="crit-hosts" style="color: var(--danger);">0</div>
+                <div class="kpi-sub">需立即處理</div>
+            </div>
+            <div class="kpi-card warn">
+                <div class="kpi-title">警告通知 (Warnings)</div>
+                <div class="kpi-value" id="warn-hosts" style="color: var(--warning);">0</div>
+                <div class="kpi-sub">潛在效能風險</div>
+            </div>
+            <div class="kpi-card healthy">
+                <div class="kpi-title">健康系統</div>
+                <div class="kpi-value" id="ok-hosts" style="color: var(--success);">0</div>
+                <div class="kpi-sub">運作狀態最佳</div>
+            </div>
+        </div>
+
+        <div class="insights-section">
+            <div class="chart-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-weight: 400;">📊 異常類型分佈</h3>
+                    <span style="font-size: 0.8em; color: var(--text-muted);">點擊長條圖可過濾列表</span>
+                </div>
+                <div class="bar-chart" id="issue-chart">
+                </div>
+            </div>
+
+            <div class="ai-summary-card" id="ai-card">
+                <div class="ai-header">
+                    <div class="ai-avatar">🔮</div>
+                    <div>
+                        <h3 style="margin: 0; font-size: 1.1em;" id="ai-title">AI 戰情摘要</h3>
+                        <span style="font-size: 0.8em; color: #888;">即時根因分析與診斷</span>
+                    </div>
+                </div>
+
+                <div id="active-context-container" class="active-context-area">
+                </div>
+
+                <div class="ai-text" id="ai-insight">正在連線至神經網路核心...</div>
+
+                <div class="ai-tags-container" id="ai-tags"></div>
+
+                <button id="btn-reanalyze" class="btn-ai" onclick="manualTriggerAI()">
+                    <span>🔄 重新分析戰情</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="section-title">
+            基礎設施列表
+            <span id="list-filter-label"
+                style="font-size: 0.6em; color: var(--text-muted); font-weight: normal; margin-left: 10px; background: #333; padding: 2px 8px; border-radius: 4px;">全部主機</span>
+        </div>
+        <div class="host-grid" id="host-grid">
+        </div>
+
+    </div>
+
+    <script>
+        // --- 0. 內嵌真實測試數據 (MOCK_SERVER_DATA) ---
+        // 用於生成前端介面與測試用
+        const MOCK_SERVER_DATA = {
+            "code": 0,
+            "data": {
+                "list": [
+                    {
+                        "host": "104.199.219.254", "alias": "ida 莎普羅 漮華",
+                        "pluginOutput": "OK. instance-1 ping time 36.3ms",
+                        "serviceList": [
+                            { "service": "check_cpu", "pluginOutput": "processor_usage: 64" },
+                            { "service": "check_mem", "pluginOutput": "mempool_perc: 98" }
+                        ]
+                    },
+                    {
+                        "host": "35.185.128.37", "alias": "康鮮 NISORO",
+                        "pluginOutput": "OK. nisoro ping time 36.6ms",
+                        "serviceList": [
+                            { "service": "check_cpu", "pluginOutput": "processor_usage: 14" },
+                            { "service": "check_mem", "pluginOutput": "mempool_perc: 37" }
+                        ]
+                    },
+                    {
+                        "host": "https://omo.sunshinelab.com.tw", "alias": "耀陽實驗室網站",
+                        "pluginOutput": "Web load time 0.751s code 200"
+                    },
+                    {
+                        "host": "https://omo.sunshinelab.com.tw-ssl", "alias": "耀陽實驗室網站憑證到期",
+                        "pluginOutput": "網站憑證到期天數 84 天"
+                    },
+                    {
+                        "host": "https://www.drtsaiclinic.com", "alias": "蔡凱宙網站",
+                        "pluginOutput": "code 403"
+                    },
+                    {
+                        "host": "https://www.drtsaiclinic.com-ssl", "alias": "蔡凱宙網站憑證到期",
+                        "pluginOutput": "網站憑證到期天數 61 天"
+                    },
+                    {
+                        "host": "https://www.khbio.com.tw", "alias": "漮華藥品網站",
+                        "pluginOutput": "code 200 Service Unavailable"
+                    },
+                    {
+                        "host": "https://www.khbio.com.tw-ssl", "alias": "漮華網站憑證到期",
+                        "pluginOutput": "網站憑證到期天數 37 天"
+                    }
+                ]
+            }
+        };
+
+        // --- 設定與參數 ---
+        const AUTO_REFRESH_INTERVAL = 300;
+
+        // --- 狀態變數 ---
+        let hosts = [];
+        let activeTags = new Set();
+        let countdownVal = AUTO_REFRESH_INTERVAL;
+
+        const issueTypes = {
+            "CPU_SATURATION": { label: "🔥 CPU 過載", color: "#FF5252" },
+            "MEM_LEAK": { label: "💾 記憶體洩漏", color: "#FFC107" },
+            "SSL_EXPIRY": { label: "🔒 憑證過期", color: "#AB47BC" },
+            "WEB_ERROR": { label: "🚫 網站錯誤", color: "#FF5252" },
+            "HEALTHY": { label: "✅ 系統正常", color: "#4CAF50" }
+        };
+
+        // --- 1. 鍊金解析器 (將測試數據轉換為前端物件) ---
+        function parseRealData(jsonData) {
+            const rawList = jsonData.data.list;
+            const adaptedHosts = [];
+
+            rawList.forEach(item => {
+                let status = 'OK';
+                let issueType = 'HEALTHY';
+                let metricLabel = 'OK';
+                let alchemyElements = [];
+
+                // A. 實體主機 (Linux/Windows)
+                if (item.serviceList && item.serviceList.length > 0) {
+                    let cpuUsage = 0, memUsage = 0;
+                    const cpuSvc = item.serviceList.find(s => s.service === 'check_cpu');
+                    const memSvc = item.serviceList.find(s => s.service === 'check_mem');
+
+                    if (cpuSvc && cpuSvc.pluginOutput) {
+                        const m = cpuSvc.pluginOutput.match(/usage[:\s]+(\d+)/);
+                        if (m) cpuUsage = parseInt(m[1]);
+                    }
+                    if (memSvc && memSvc.pluginOutput) {
+                        const m = memSvc.pluginOutput.match(/perc[:\s]+(\d+)/);
+                        if (m) memUsage = parseInt(m[1]);
+                    }
+
+                    if (memUsage > 90) {
+                        status = 'CRIT';
+                        issueType = 'MEM_LEAK';
+                        metricLabel = `Mem: ${memUsage}%`;
+                        alchemyElements = ['💾 Memory', '🔥 High Load'];
+                    } else if (cpuUsage > 80) {
+                        status = 'WARN';
+                        issueType = 'CPU_SATURATION';
+                        metricLabel = `CPU: ${cpuUsage}%`;
+                        alchemyElements = ['🔥 CPU', '⚙️ Process'];
+                    } else {
+                        metricLabel = `CPU: ${cpuUsage}%`;
+                    }
+                }
+                // B. 網站/SSL 檢查
+                else if (item.pluginOutput) {
+                    if (item.alias.includes("憑證")) {
+                        const dayMatch = item.pluginOutput.match(/天數\s*(\d+)/);
+                        if (dayMatch) {
+                            const days = parseInt(dayMatch[1]);
+                            metricLabel = `SSL: ${days}天`;
+                            if (days < 45) {
+                                status = 'WARN';
+                                issueType = 'SSL_EXPIRY';
+                                alchemyElements = ['🔒 Cert', '⏳ Time'];
+                            }
+                        }
+                    } else if (item.pluginOutput.includes("code 403") || item.pluginOutput.includes("code 500")) {
+                        status = 'CRIT';
+                        issueType = 'WEB_ERROR';
+                        const code = item.pluginOutput.match(/code\s*(\d+)/)?.[1] || 'Err';
+                        metricLabel = `Http: ${code}`;
+                        alchemyElements = ['🌐 Web', '🚫 Forbidden'];
+                    } else {
+                        metricLabel = 'Http: 200';
+                    }
+                }
+
+                adaptedHosts.push({
+                    id: item.alias || item.host,
+                    ip: item.host,
+                    status: status,
+                    issueType: issueType,
+                    metric: metricLabel,
+                    elements: alchemyElements
+                });
+            });
+            return adaptedHosts;
+        }
+
+        // --- 2. 渲染邏輯 (UI更新) ---
+        function animateValue(obj, start, end, duration) {
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function renderDashboard() {
+            const stats = {
+                total: hosts.length,
+                crit: hosts.filter(h => h.status === 'CRIT').length,
+                warn: hosts.filter(h => h.status === 'WARN').length,
+                ok: hosts.filter(h => h.status === 'OK').length
+            };
+
+            animateValue(document.getElementById('total-hosts'), 0, stats.total, 800);
+            animateValue(document.getElementById('crit-hosts'), 0, stats.crit, 800);
+            animateValue(document.getElementById('warn-hosts'), 0, stats.warn, 800);
+            animateValue(document.getElementById('ok-hosts'), 0, stats.ok, 800);
+
+            const issueCounts = {};
+            hosts.filter(h => h.status !== 'OK').forEach(h => {
+                issueCounts[h.issueType] = (issueCounts[h.issueType] || 0) + 1;
+            });
+
+            const chartContainer = document.getElementById('issue-chart');
+            chartContainer.innerHTML = '';
+
+            const sortedIssues = Object.keys(issueCounts).sort((a, b) => issueCounts[b] - issueCounts[a]);
+            const maxCount = sortedIssues.length > 0 ? issueCounts[sortedIssues[0]] : 1;
+
+            if (sortedIssues.length === 0) {
+                chartContainer.innerHTML = '<div style="color:#666; text-align:center; padding:30px; border: 1px dashed #444; border-radius: 8px;">🎉 系統運作於最佳狀態，無異常數據。</div>';
+            } else {
+                sortedIssues.forEach(type => {
+                    const count = issueCounts[type];
+                    const meta = issueTypes[type];
+                    const percent = (count / maxCount) * 100;
+
+                    const row = document.createElement('div');
+                    row.className = 'bar-row';
+                    row.onclick = () => filterHostList(type);
+                    row.innerHTML = `
+                        <div class="bar-label" style="color:${meta.color}">
+                            ${meta.label}
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: ${percent}%; background: ${meta.color}"></div>
+                        </div>
+                        <div class="bar-count">${count}</div>
+                    `;
+                    chartContainer.appendChild(row);
+                });
+            }
+
+            renderHostList(hosts);
+        }
+
+        function renderHostList(data) {
+            const grid = document.getElementById('host-grid');
+            grid.innerHTML = '';
+
+            const sortedData = [...data].sort((a, b) => {
+                const score = { 'CRIT': 3, 'WARN': 2, 'OK': 1 };
+                return score[b.status] - score[a.status];
+            });
+
+            sortedData.forEach(h => {
+                const card = document.createElement('div');
+                card.className = 'host-card';
+
+                let statusClass = 's-ok';
+                if (h.status === 'CRIT') statusClass = 's-crit';
+                if (h.status === 'WARN') statusClass = 's-warn';
+
+                const elementBadges = h.elements.map(el =>
+                    `<span class="element-badge">${el}</span>`
+                ).join('');
+
+                card.innerHTML = `
+                    <div class="host-header">
+                        <div>
+                            <div class="host-title">${h.id}</div>
+                            <div class="host-ip">${h.ip}</div>
+                        </div>
+                        <div class="metric-badge ${statusClass}">${h.metric}</div>
+                    </div>
+                    <div style="font-size:0.8em; color:${issueTypes[h.issueType].color}">
+                        ${h.issueType !== 'HEALTHY' ? issueTypes[h.issueType].label : '正常'}
+                    </div>
+                    <div class="host-elements">
+                        ${elementBadges}
+                    </div>
+                `;
+                card.onclick = () => {
+                    if (h.elements.length > 0) addContextTag(h.elements[0]);
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        function filterHostList(issueType) {
+            const filtered = hosts.filter(h => h.issueType === issueType);
+            renderHostList(filtered);
+            const labelEl = document.getElementById('list-filter-label');
+            labelEl.innerText = `${issueTypes[issueType].label}`;
+            labelEl.style.color = issueTypes[issueType].color;
+        }
+
+        // --- 3. 互動上下文邏輯 (Tag Interaction) ---
+
+        function addContextTag(tag) {
+            if (activeTags.has(tag)) return;
+            activeTags.add(tag);
+            renderActiveTags();
+            triggerAIAnalysis(true);
+        }
+
+        function removeContextTag(tag) {
+            activeTags.delete(tag);
+            renderActiveTags();
+            triggerAIAnalysis(true);
+        }
+
+        function renderActiveTags() {
+            const container = document.getElementById('active-context-container');
+            container.innerHTML = '';
+
+            if (activeTags.size === 0) {
+                container.style.display = 'none';
+                return;
+            }
+
+            container.style.display = 'flex';
+            const label = document.createElement('span');
+            label.style.cssText = 'font-size:0.8em; color:#888; display:flex; align-items:center; margin-right:5px;';
+            label.innerText = '聚焦分析:';
+            container.appendChild(label);
+
+            activeTags.forEach(tag => {
+                const el = document.createElement('div');
+                el.className = 'active-tag';
+                el.innerHTML = `${tag} <span class="active-tag-remove" onclick="removeContextTag('${tag}')">×</span>`;
+                container.appendChild(el);
+            });
+        }
+
+        // --- 4. 真實 AI 分析核心 (Real Integration) ---
+
+        const aiInsightBox = document.getElementById('ai-insight');
+        const observer = new MutationObserver(() => {
+            aiInsightBox.scrollTop = aiInsightBox.scrollHeight;
+        });
+        observer.observe(aiInsightBox, { childList: true, subtree: true, characterData: true });
+
+        // ★★★ 核心修改：發送真實請求給後端 ★★★
+        async function triggerAIAnalysis(isRefinement = false) {
+            const btn = document.getElementById('btn-reanalyze');
+            const aiText = document.getElementById('ai-insight');
+            const aiTags = document.getElementById('ai-tags');
+            const aiTitle = document.getElementById('ai-title');
+            const aiCard = document.getElementById('ai-card');
+
+            // UI 狀態鎖定
+            btn.disabled = true;
+            if (isRefinement) {
+                btn.innerHTML = '<span class="status-dot" style="background:var(--accent); box-shadow:none;"></span> 注入上下文分析中...';
+            } else {
+                btn.innerHTML = '<span class="status-dot" style="background:#ccc; box-shadow:none;"></span> 掃描分析中...';
+            }
+            aiText.style.opacity = 0.5;
+
+            // 1. 收集目前的監控數據統計
+            const stats = {
+                crit: hosts.filter(h => h.status === 'CRIT').length,
+                warn: hosts.filter(h => h.status === 'WARN').length,
+                issues: {}
+            };
+            hosts.filter(h => h.status !== 'OK').forEach(h => {
+                stats.issues[h.issueType] = (stats.issues[h.issueType] || 0) + 1;
+            });
+
+            // 2. 建構專家級 System Prompt
+            let prompt = `
+你是一位擁有 20 年經驗的資深 SRE (網站可靠性工程師) 與 AIOps 全域監控專家。
+請根據以下系統全網遙測數據進行戰情分析：
+
+[系統狀態數據]
+- 嚴重告警 (Critical): ${stats.crit} 台
+- 警告通知 (Warning): ${stats.warn} 台
+- 異常類型分佈: ${JSON.stringify(stats.issues)}
+`;
+
+            // 如果有選中 Context Tag，加入使用者關注焦點與證據
+            if (activeTags.size > 0) {
+                const focusTopics = Array.from(activeTags).join(', ');
+
+                // 找出相關的主機證據 (從 hosts 陣列中撈取)
+                const relatedHosts = hosts.filter(h =>
+                    activeTags.has(h.issueType) || h.elements.some(el => activeTags.has(el))
+                ).map(h => `${h.id}(${h.metric})`).join(', ');
+
+                prompt += `
+[使用者關注焦點 (User Focus)]
+使用者正在針對標籤 [${focusTopics}] 進行深度調查。
+
+[相關佐證數據 (Evidence)]
+受影響主機: ${relatedHosts || "無特定主機數據"}
+
+[分析任務]
+1. **深度關聯分析**: 針對 [${focusTopics}] 進行根因推斷。解釋為何會發生此問題？是否為集體故障？
+2. **具體處置建議**: 提供技術性的緩解或修復步驟 (例如: 擴容、回滾、檢查特定設定)。
+`;
+            } else {
+                prompt += `
+[分析任務]
+1. **戰情總結**: 提供當前系統健康度的戰術摘要。指出最危急的風險點。
+2. **優先行動**: 建議維運團隊接下來應優先處理的事項。
+`;
+            }
+
+            // 通用輸出規範
+            prompt += `
+[輸出規範]
+1. **語言**: 必須使用 **繁體中文 (Traditional Chinese)**。
+2. **格式**: 僅輸出純 JSON 字串，**嚴禁**包含 Markdown 標記 (如 \`\`\`json)。
+3. **欄位要求**:
+   - "result": 短標題 (例如: "嚴重服務中斷" 或 "SSL 憑證集體過期")
+   - "summary": 詳細分析內容 (請使用 \\n 換行排版，或 Markdown 語法如 **粗體**、* 列表)
+   - "tags": [關鍵字1, 關鍵字2, 關鍵字3]
+   - "color": 建議的狀態顏色 hex code (綠色=#4CAF50, 黃色=#FFC107, 紅色=#FF5252)
+
+[JSON 範例]
+{
+    "result": "資料庫叢集高負載",
+    "summary": "偵測到多台資料庫主機 **CPU 飽和**...\\n* 建議立即檢查慢查詢日誌。",
+    "tags": ["Database", "CPU", "SlowQuery"],
+    "color": "#FF5252"
+}
+`;
+
+            console.log("Sending Expert Prompt to Backend:", prompt);
+
+            try {
+                // 3. 發送真實請求
+                const formData = new FormData();
+                formData.append('message', prompt);
+
+                const response = await fetch("/api/monitor/analyze", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("API Request Failed: " + response.statusText);
+
+                const resJson = await response.json();
+
+                if (resJson.status === 'success') {
+                    let aiContent = resJson.response;
+
+                    // 清理可能存在的 Markdown 標記
+                    aiContent = aiContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+                    // 嘗試提取 JSON 物件
+                    const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) throw new Error("AI 回應格式錯誤，無法解析 JSON");
+
+                    const data = JSON.parse(jsonMatch[0]);
+
+                    // 4. 更新 UI
+                    aiText.style.opacity = 1;
+                    aiTitle.innerText = data.result;
+                    aiTitle.style.color = data.color;
+                    aiCard.style.borderColor = data.color;
+
+                    // ★★★ 重點修改：使用 marked 解析 Markdown ★★★
+                    if (typeof marked !== 'undefined') {
+                        // 將 Markdown 轉為 HTML
+                        const htmlContent = marked.parse(data.summary);
+                        aiText.innerHTML = htmlContent;
+                        aiText.classList.add('fade-in'); // 加入淡入動畫
+                    } else {
+                        aiText.innerText = data.summary;
+                    }
+
+                    // 生成可點擊的 Tag
+                    aiTags.innerHTML = data.tags.map(tag =>
+                        `<span class="ai-tag" onclick="addContextTag('${tag}')" 
+                               title="點擊以將 '${tag}' 加入分析上下文"
+                               style="color:${data.color}; border-color:${data.color}40; background:${data.color}15">
+                           ${tag}
+                         </span>`
+                    ).join('');
+                } else {
+                    throw new Error(resJson.message || "Unknown Backend Error");
+                }
+
+            } catch (e) {
+                console.error(e);
+                aiText.style.opacity = 1;
+                aiText.innerText = "⚠️ AI 分析連線失敗：\n" + e.message + "\n\n(請確認 Spring Boot 後端是否已啟動並提供 /api/monitor/analyze 接口)";
+                aiCard.style.borderColor = "#FF5252";
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span>🔄 重新分析戰情</span>';
+            }
+        }
+
+        // --- 5. 系統啟動 ---
+        function manualTriggerAI() {
+            countdownVal = AUTO_REFRESH_INTERVAL;
+            updateCountdown();
+            triggerAIAnalysis();
+        }
+
+        function updateCountdown() {
+            document.getElementById('countdown').innerText = countdownVal;
+        }
+
+        function initSystem() {
+            // 使用真實解析器處理 MOCK 數據
+            hosts = parseRealData(MOCK_SERVER_DATA);
+
+            renderDashboard();
+            triggerAIAnalysis();
+
+            setInterval(() => {
+                countdownVal--;
+                if (countdownVal <= 0) {
+                    countdownVal = AUTO_REFRESH_INTERVAL;
+                    // 在真實環境這裡會 fetch 新資料
+                    // hosts = parseRealData(NEW_DATA);
+                    renderDashboard();
+                    triggerAIAnalysis();
+                }
+                updateCountdown();
+            }, 1000);
+        }
+
+        window.addEventListener('load', initSystem);
+
+    </script>
+
+</body>
+
+</html>

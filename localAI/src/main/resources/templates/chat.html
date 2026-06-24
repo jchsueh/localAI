@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ollama Chat</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+</head>
+<body>
+<div class="chat-container">
+    <select id="agent-select" class="form-select">
+        <option value="default">🤖 預設 AI 助理</option>
+    </select>
+
+    <header>
+        <h1>Ollama Chat</h1>
+        <div class="header-controls">
+            <button id="search-button" class="icon-btn" title="搜尋對話 (Ctrl+/)">🔍</button>
+            <button id="stats-button" class="icon-btn" title="使用統計">📊</button>
+            <button id="voice-button" class="icon-btn" title="語音輸入">🎤</button>
+            <button id="sessions-button" class="icon-btn" title="對話管理 (Ctrl+N)">💬</button>
+            <button id="theme-toggle" class="icon-btn" title="切換主題">🌙</button>
+            <button id="history-button" class="icon-btn" title="對話記錄">📚</button>
+            <button id="prompt-button" class="icon-btn" title="提示詞模板 (Ctrl+K)">⚡</button>
+            <button id="config-button" class="config-btn">⚙️ 設定</button>
+        </div>
+    </header>
+
+    <!-- Config Panel -->
+    <div id="config-panel" class="config-panel" style="display: none;">
+        <h3>連線設定</h3>
+        <div class="config-form">
+            <div class="form-group">
+                <label for="ollama-url">Ollama URL:</label>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <input type="text" id="ollama-url" placeholder="http://localhost:11434" value="http://localhost:11434" style="flex: 1;">
+                    <button type="button" id="refresh-models" class="btn-secondary" style="padding: 8px 12px; white-space: nowrap;">🔄 抓取模型</button>
+                </div>
+                <small>本地端: http://localhost:11434<br>遠端範例: http://192.168.1.100:11434</small>
+            </div>
+            <div class="form-group">
+                <label for="model-select">模型:</label>
+                <select id="model-select">
+                    <option value="">請先抓取可用模型...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="streaming-mode" checked>
+                    啟用串流模式 (即時顯示回應)
+                </label>
+            </div>
+            <details style="margin-top: 10px;">
+                <summary style="cursor: pointer; font-weight: bold;">進階參數</summary>
+                <div class="form-group" style="margin-top: 10px;">
+                    <label for="temperature">Temperature (創造性): <span id="temp-value">0.7</span></label>
+                    <input type="range" id="temperature" min="0" max="2" step="0.1" value="0.7" style="width: 100%;">
+                    <small>0 = 精確, 2 = 創意</small>
+                </div>
+                <div class="form-group">
+                    <label for="top-p">Top-p (多樣性): <span id="top-p-value">0.9</span></label>
+                    <input type="range" id="top-p" min="0" max="1" step="0.05" value="0.9" style="width: 100%;">
+                    <small>0 = 保守, 1 = 多樣</small>
+                </div>
+                <div class="form-group">
+                    <label for="max-tokens">Max Tokens: <span id="max-tokens-value">2048</span></label>
+                    <input type="range" id="max-tokens" min="256" max="8192" step="256" value="2048" style="width: 100%;">
+                    <small>回應最大長度</small>
+                </div>
+            </details>
+            <div class="config-buttons">
+                <button id="save-config" class="btn-primary">保存設定</button>
+                <button id="cancel-config" class="btn-secondary">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Panel -->
+    <div id="history-panel" class="side-panel" style="display: none;">
+        <div class="panel-header">
+            <h3>📚 對話記錄</h3>
+            <button id="close-history" class="close-btn">✕</button>
+        </div>
+        <div class="panel-content">
+            <div class="history-actions">
+                <button id="save-conversation" class="btn-action">💾 保存當前對話</button>
+                <button id="export-conversation" class="btn-action">📥 匯出對話</button>
+            </div>
+            <div id="history-list" class="history-list">
+                <p class="empty-message">尚無保存的對話記錄</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Templates Panel -->
+    <div id="prompt-panel" class="side-panel" style="display: none;">
+        <div class="panel-header">
+            <h3>⚡ 快速提示詞</h3>
+            <button id="close-prompt" class="close-btn">✕</button>
+        </div>
+        <div class="panel-content">
+            <div class="prompt-grid">
+                <button class="prompt-card" data-prompt="請幫我解釋以下程式碼：\n\n">
+                    <span class="prompt-icon">💻</span>
+                    <span class="prompt-title">程式碼解釋</span>
+                </button>
+                <button class="prompt-card" data-prompt="請幫我優化這段程式碼：\n\n">
+                    <span class="prompt-icon">⚡</span>
+                    <span class="prompt-title">程式碼優化</span>
+                </button>
+                <button class="prompt-card" data-prompt="請幫我撰寫一個函數來">
+                    <span class="prompt-icon">🔧</span>
+                    <span class="prompt-title">撰寫函數</span>
+                </button>
+                <button class="prompt-card" data-prompt="請幫我debug這段程式碼：\n\n">
+                    <span class="prompt-icon">🐛</span>
+                    <span class="prompt-title">Debug</span>
+                </button>
+                <button class="prompt-card" data-prompt="請用繁體中文翻譯以下內容：\n\n">
+                    <span class="prompt-icon">🌐</span>
+                    <span class="prompt-title">翻譯</span>
+                </button>
+                <button class="prompt-card" data-prompt="請幫我總結以下內容：\n\n">
+                    <span class="prompt-icon">📝</span>
+                    <span class="prompt-title">總結</span>
+                </button>
+                <button class="prompt-card" data-prompt="請提供創意想法關於：">
+                    <span class="prompt-icon">💡</span>
+                    <span class="prompt-title">創意發想</span>
+                </button>
+                <button class="prompt-card" data-prompt="請詳細說明：">
+                    <span class="prompt-icon">📖</span>
+                    <span class="prompt-title">詳細解說</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Panel -->
+    <div id="stats-panel" class="side-panel" style="display: none;">
+        <div class="panel-header">
+            <h3>📊 使用統計</h3>
+            <button id="close-stats" class="close-btn">✕</button>
+        </div>
+        <div class="panel-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-messages">0</div>
+                    <div class="stat-label">總訊息數</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-sessions">0</div>
+                    <div class="stat-label">對話次數</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avg-response-time">0ms</div>
+                    <div class="stat-label">平均回應時間</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-tokens">~0</div>
+                    <div class="stat-label">估計 Tokens</div>
+                </div>
+            </div>
+            <div class="stats-chart">
+                <h4>今日活動</h4>
+                <canvas id="activity-chart" width="300" height="150"></canvas>
+            </div>
+            <button id="reset-stats" class="btn-action" style="margin-top: 20px;">🔄 重置統計</button>
+        </div>
+    </div>
+
+    <!-- Sessions Panel -->
+    <div id="sessions-panel" class="side-panel" style="display: none;">
+        <div class="panel-header">
+            <h3>💬 對話管理</h3>
+            <button id="close-sessions" class="close-btn">✕</button>
+        </div>
+        <div class="panel-content">
+            <button id="new-session" class="btn-primary" style="width: 100%; margin-bottom: 15px;">➕ 新建對話</button>
+            <div id="sessions-list" class="sessions-list">
+                <div class="session-item active" data-id="default">
+                    <div class="session-info">
+                        <div class="session-name">預設對話</div>
+                        <div class="session-time">剛剛</div>
+                    </div>
+                    <div class="session-actions">
+                        <button class="session-rename" title="重命名">✏️</button>
+                        <button class="session-pin" title="置頂">📌</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Panel -->
+    <div id="search-panel" class="side-panel" style="display: none;">
+        <div class="panel-header">
+            <h3>🔍 搜尋對話</h3>
+            <button id="close-search" class="close-btn">✕</button>
+        </div>
+        <div class="panel-content">
+            <div class="search-box">
+                <input type="text" id="search-input" placeholder="輸入關鍵字..." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+            </div>
+            <div id="search-results" class="search-results" style="margin-top: 15px;">
+                <p class="empty-message">輸入關鍵字開始搜尋</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="chat-history" class="chat-history">
+        <!-- Messages will appear here -->
+        <div class="message system-message">
+            <p>歡迎！開始與 Ollama 對話吧。</p>
+        </div>
+    </div>
+    <div class="chat-input-area">
+        <div class="input-hint">
+            💡 Enter 送出 | Shift+Enter 換行 |
+            <span id="network-status" class="status-indicator">🟢 已連線</span>
+            <label style="margin-left: 15px;">
+                <input type="checkbox" id="web-search-toggle">
+                🌐 啟用網頁搜尋
+            </label>
+        </div>
+        <!-- File upload area -->
+        <div id="file-preview" class="file-preview" style="display: none;">
+            <div class="preview-item">
+                <img id="preview-image" src="" alt="Preview" style="max-width: 100px; max-height: 100px;">
+                <button id="remove-file" class="remove-btn">✕</button>
+            </div>
+        </div>
+        <form id="chat-form">
+            <div class="input-container">
+                <button type="button" id="attach-button" class="input-btn" title="上傳圖片">📎</button>
+                <input type="file" id="file-input" accept="image/*" style="display: none;">
+                <textarea id="message-input" placeholder="輸入訊息..." rows="1" autocomplete="off" required></textarea>
+                <button type="button" id="voice-input-btn" class="input-btn" title="語音輸入">🎤</button>
+                <button type="button" id="tts-toggle" class="input-btn" title="語音朗讀" data-enabled="false">🔇</button>
+            </div>
+            <div class="button-group">
+                <button type="button" id="stop-generation" class="action-btn" style="display: none;">⏹️ 停止生成</button>
+                <button type="button" id="regenerate-button" class="action-btn" style="display: none;">🔄 重新生成</button>
+                <button type="button" id="clear-button" class="action-btn">🗑️ 清除</button>
+                <button type="submit" id="send-button" class="send-btn">📤 送出</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script th:src="@{/js/chat.js}"></script>
+</body>
+</html>

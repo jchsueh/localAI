@@ -30,6 +30,9 @@ yarn-error.log*
 pnpm-lock.yaml
 package-lock.json
 
+# Java / Maven build outputs
+target/
+
 # NotebookLM and private exports
 notebooks.json
 notebooklm/

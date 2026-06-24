@@ -1,0 +1,280 @@
+{
+    "modelName": "gemma3:latest",
+    "serverData": {
+        "code": 0,
+        "data": {
+            "list": [
+			    {
+                    "host": "104.199.219.254",
+                    "alias": "ida 莎普羅 漮華",
+                    "pluginOutput": "OK. instance-1 ping time 36.3ms",
+                    "serviceList": [
+                        {
+                            "service": "check_cpu",
+                            "pluginOutput": "processor_usage: 64"
+                        },
+                        {
+                            "service": "check_mem",
+                            "pluginOutput": "mempool_perc: 98"
+                        }
+                    ]
+                },
+                {
+                    "host": "35.185.128.37",
+                    "alias": "康鮮 NISORO",
+                    "pluginOutput": "OK. nisoro ping time 36.6ms",
+                    "serviceList": [
+                        {
+                            "service": "check_cpu",
+                            "pluginOutput": "processor_usage: 14"
+                        },
+                        {
+                            "service": "check_mem",
+                            "pluginOutput": "mempool_perc: 37"
+                        }
+                    ]
+                },
+				                {
+                    "host": "https://omo.sunshinelab.com.tw",
+                    "alias": "耀陽實驗室網站",
+                    "pluginOutput": "Web load time 0.751s code 200"
+                },
+                {
+                    "host": "https://omo.sunshinelab.com.tw-ssl",
+                    "alias": "耀陽實驗室網站憑證到期",
+                    "pluginOutput": "網站憑證到期天數 84 天"
+                },
+                {
+                    "host": "https://www.drtsaiclinic.com",
+                    "alias": "蔡凱宙網站",
+                    "pluginOutput": "code 403"
+                },
+                {
+                    "host": "https://www.drtsaiclinic.com-ssl",
+                    "alias": "蔡凱宙網站憑證到期",
+                    "pluginOutput": "網站憑證到期天數 61 天"
+                },
+                {
+                    "host": "https://www.khbio.com.tw",
+                    "alias": "漮華藥品網站",
+                    "pluginOutput": "code 200 Service Unavailable"
+                },
+                {
+                    "host": "https://www.khbio.com.tw-ssl",
+                    "alias": "漮華網站憑證到期",
+                    "pluginOutput": "網站憑證到期天數 37 天"
+                },
+                {
+                    "host": "192.168.1.10",
+                    "alias": "AD 網域控制站 (Primary)",
+                    "pluginOutput": "OK. ping time 2.1ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 15" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 45" }
+                    ]
+                },
+                {
+                    "host": "192.168.1.11",
+                    "alias": "AD 網域控制站 (Backup)",
+                    "pluginOutput": "OK. ping time 2.3ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 12" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 40" }
+                    ]
+                },
+                {
+                    "host": "10.0.50.5",
+                    "alias": "ERP 資料庫主機",
+                    "pluginOutput": "OK. ping time 0.8ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 88" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 92" }
+                    ]
+                },
+                {
+                    "host": "10.0.50.6",
+                    "alias": "ERP 應用伺服器",
+                    "pluginOutput": "OK. ping time 0.9ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 65" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 78" }
+                    ]
+                },
+                {
+                    "host": "172.16.10.100",
+                    "alias": "HR 系統 Web Server",
+                    "pluginOutput": "OK. ping time 12ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 5" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 20" }
+                    ]
+                },
+                {
+                    "host": "172.16.10.101",
+                    "alias": "HR 系統 DB Server",
+                    "pluginOutput": "OK. ping time 11ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 10" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 35" }
+                    ]
+                },
+                {
+                    "host": "35.200.100.1",
+                    "alias": "官網前端 (GCP-TW)",
+                    "pluginOutput": "OK. ping time 35ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 42" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 60" }
+                    ]
+                },
+                {
+                    "host": "35.200.100.2",
+                    "alias": "官網後端 API (GCP-TW)",
+                    "pluginOutput": "OK. ping time 36ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 98" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 85" }
+                    ]
+                },
+                {
+                    "host": "104.199.55.88",
+                    "alias": "大數據分析節點-01",
+                    "pluginOutput": "OK. ping time 40ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 99" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 99" }
+                    ]
+                },
+                {
+                    "host": "104.199.55.89",
+                    "alias": "大數據分析節點-02",
+                    "pluginOutput": "OK. ping time 41ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 95" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 96" }
+                    ]
+                },
+                {
+                    "host": "192.168.99.1",
+                    "alias": "內部檔案伺服器 (NAS)",
+                    "pluginOutput": "OK. ping time 1ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 15" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 40" }
+                    ]
+                },
+                {
+                    "host": "192.168.99.2",
+                    "alias": "備份伺服器 (Veeam)",
+                    "pluginOutput": "OK. ping time 2ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 80" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 70" }
+                    ]
+                },
+                {
+                    "host": "10.20.30.40",
+                    "alias": "測試環境 - Web A",
+                    "pluginOutput": "OK. ping time 5ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 2" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 15" }
+                    ]
+                },
+                {
+                    "host": "10.20.30.41",
+                    "alias": "測試環境 - Web B",
+                    "pluginOutput": "OK. ping time 5ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 1" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 14" }
+                    ]
+                },
+                {
+                    "host": "10.20.30.50",
+                    "alias": "測試環境 - DB",
+                    "pluginOutput": "OK. ping time 4ms",
+                    "serviceList": [
+                        { "service": "check_cpu", "pluginOutput": "processor_usage: 5" },
+                        { "service": "check_mem", "pluginOutput": "mempool_perc: 30" }
+                    ]
+                },
+                {
+                    "host": "https://www.company.com",
+                    "alias": "企業官網 (Public)",
+                    "pluginOutput": "Web load time 0.4s code 200"
+                },
+                {
+                    "host": "https://shop.company.com",
+                    "alias": "線上商城",
+                    "pluginOutput": "Web load time 1.2s code 200"
+                },
+                {
+                    "host": "https://api.company.com",
+                    "alias": "對外 API Gateway",
+                    "pluginOutput": "Web load time 0.1s code 200"
+                },
+                {
+                    "host": "https://partner.company.com",
+                    "alias": "合作夥伴入口網",
+                    "pluginOutput": "code 502 Bad Gateway"
+                },
+                {
+                    "host": "https://legacy.company.com",
+                    "alias": "舊版系統 (唯讀)",
+                    "pluginOutput": "code 404 Not Found"
+                },
+                {
+                    "host": "https://dev.company.com",
+                    "alias": "開發測試站",
+                    "pluginOutput": "code 403 Forbidden"
+                },
+                {
+                    "host": "https://mail.company.com",
+                    "alias": "Webmail 服務",
+                    "pluginOutput": "Web load time 5.5s code 200"
+                },
+                {
+                    "host": "https://vpn.company.com",
+                    "alias": "SSL VPN 入口",
+                    "pluginOutput": "Web load time 0.8s code 200"
+                },
+                {
+                    "host": "https://www.company.com-ssl",
+                    "alias": "官網憑證檢查",
+                    "pluginOutput": "網站憑證到期天數 300 天"
+                },
+                {
+                    "host": "https://shop.company.com-ssl",
+                    "alias": "商城憑證檢查",
+                    "pluginOutput": "網站憑證到期天數 28 天"
+                },
+                {
+                    "host": "https://api.company.com-ssl",
+                    "alias": "API 憑證檢查",
+                    "pluginOutput": "網站憑證到期天數 5 天"
+                },
+                {
+                    "host": "https://partner.company.com-ssl",
+                    "alias": "夥伴入口憑證檢查",
+                    "pluginOutput": "網站憑證到期天數 120 天"
+                },
+                {
+                    "host": "https://legacy.company.com-ssl",
+                    "alias": "舊系統憑證檢查",
+                    "pluginOutput": "網站憑證到期天數 -3 天 (已過期)"
+                },
+                {
+                    "host": "https://internal.metrics.io",
+                    "alias": "內部監控儀表板",
+                    "pluginOutput": "Web load time 0.6s code 200"
+                },
+                {
+                    "host": "https://jenkins.devops.local",
+                    "alias": "CI/CD Jenkins",
+                    "pluginOutput": "Web load time 15.2s code 200"
+                }
+            ]
+        }
+    }
+}

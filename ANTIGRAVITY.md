@@ -1,12 +1,12 @@
-# Antigravity2026 - ANTIGRAVITY.md
+# localAI - ANTIGRAVITY.md
 
 ## 專案入口
 
-專案名稱：Antigravity2026
-專案用途：AntiGravity 專案工作區
-主要工作目錄：d:/project/Antigravity2026
-GitHub repo：
-預設 branch：
+專案名稱：localAI (AI for Spring Boot)
+專案用途：系統監控與 AI 診斷 (Spring Boot + Ollama/SNMP)
+主要工作目錄：d:/project/Antigravity2026/localAI
+GitHub repo：https://github.com/jchsueh/localAI
+預設 branch：main
 
 ## Obsidian 對應筆記
 

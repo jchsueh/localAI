@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIOps 全域戰情室 | Intelligent Overwatch</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Share+Tech+Mono&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-dark: #050508;
+            --bg-card: rgba(20, 20, 25, 0.6);
+            --bg-glass: rgba(18, 18, 24, 0.85);
+            --text-main: #e0e0e0;
+            --text-muted: #8899a6;
+
+            /* 霓虹配色 */
+            --accent: #00f2ff;
+            /* 賽博藍 */
+            --accent-glow: rgba(0, 242, 255, 0.5);
+            --success: #00ff9d;
+            /* 螢光綠 */
+            --warning: #ffb300;
+            --danger: #ff2a6d;
+            /* 霓虹紅 */
+
+            --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+            --font-tech: 'Share Tech Mono', monospace;
+            --font-code: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            overflow-y: scroll;
+            overflow-x: hidden;
+            /* 動態網格背景 */
+            background-image:
+                linear-gradient(rgba(0, 242, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            background-position: center top;
+            animation: gridMove 20s linear infinite;
+        }
+
+        @keyframes gridMove {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: 0 40px;
+            }
+        }
+
+        /* CRT 掃描線濾鏡 */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 99999;
+            opacity: 0.3;
+        }
+
+        /* 自定義捲軸 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding-bottom: 120px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* --- 通用卡片樣式 (Glassmorphism) --- */
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: var(--glass-border);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        /* --- Header --- */
+        .header-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 25px 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
+            opacity: 0.7;
+        }
+
+        h1 {
+            margin: 0;
+            font-weight: 300;
+            font-size: 2em;
+            letter-spacing: 2px;
+        }
+
+        .monitor-meta {
+            font-family: var(--font-tech);
+            color: var(--accent);
+            margin-top: 5px;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0, 255, 157, 0.05);
+            color: var(--success);
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-family: var(--font-tech);
+            border: 1px solid rgba(0, 255, 157, 0.2);
+            box-shadow: 0 0 15px rgba(0, 255, 157, 0.1) inset;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--success);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.4;
+                box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.4);
+            }
+
+            70% {
+                opacity: 1;
+                box-shadow: 0 0 0 10px rgba(0, 255, 157, 0);
+            }
+
+            100% {
+                opacity: 0.4;
+                box-shadow: 0 0 0 0 rgba(0, 255, 157, 0);
+            }
+        }
+
+        /* --- KPI Grid --- */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .kpi-card {
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+            border-left: 2px solid transparent;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+            background: rgba(30, 30, 40, 0.8);
+        }
+
+        .kpi-card::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0%, transparent 60%);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: 0.5s;
+        }
+
+        .kpi-card:hover::after {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .kpi-icon {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            font-size: 3em;
+            opacity: 0.1;
+            transition: 0.3s;
+        }
+
+        .kpi-card:hover .kpi-icon {
+            opacity: 0.2;
+            transform: rotate(-10deg);
+        }
+
+        .kpi-title {
+            font-family: var(--font-tech);
+            font-size: 0.9em;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .kpi-value {
+            font-family: var(--font-code);
+            font-size: 3.5em;
+            font-weight: 700;
+            margin: 5px 0;
+            background: linear-gradient(180deg, #fff, #888);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .kpi-card.total {
+            border-left-color: var(--accent);
+        }
+
+        .kpi-card.total .kpi-value {
+            text-shadow: 0 0 15px var(--accent-glow);
+        }
+
+        .kpi-card.crit {
+            border-left-color: var(--danger);
+        }
+
+        .kpi-card.crit .kpi-value {
+            color: var(--danger);
+            -webkit-text-fill-color: var(--danger);
+            text-shadow: 0 0 15px rgba(255, 42, 109, 0.5);
+        }
+
+        .kpi-card.warn {
+            border-left-color: var(--warning);
+        }
+
+        .kpi-card.warn .kpi-value {
+            color: var(--warning);
+            -webkit-text-fill-color: var(--warning);
+        }
+
+        .kpi-card.healthy {
+            border-left-color: var(--success);
+        }
+
+        /* --- Insights Section --- */
+        .chart-card {
+            padding: 30px;
+            min-height: 250px;
+            border: 1px solid rgba(0, 188, 212, 0.2);
+            box-shadow: 0 0 30px rgba(0, 188, 212, 0.05) inset;
+        }
+
+        .bar-chart {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 25px;
+        }
+
+        .bar-row {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .bar-row:hover {
+            background: rgba(255, 255, 255, 0.03);
+            transform: translateX(5px);
+        }
+
+        .bar-label {
+            width: 150px;
+            font-family: var(--font-tech);
+            font-size: 1em;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .bar-fill {
+            height: 100%;
+            border-radius: 2px;
+            transition: width 1s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 0 10px currentColor;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bar-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.1) 75%, transparent 75%, transparent);
+            background-size: 20px 20px;
+            animation: stripeMove 1s linear infinite;
+        }
+
+        @keyframes stripeMove {
+            0% {
+                background-position: 0 0;
+            }
+
+            100% {
+                background-position: 20px 0;
+            }
+        }
+
+        .bar-count {
+            width: 50px;
+            text-align: right;
+            font-family: var(--font-code);
+            font-weight: bold;
+            color: #fff;
+        }
+
+        /* --- Host Grid --- */
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 1.2em;
+            font-weight: 400;
+            color: var(--accent);
+            font-family: var(--font-tech);
+            letter-spacing: 1px;
+        }
+
+        .filter-tag {
+            font-size: 0.8em;
+            color: #000;
+            background: var(--accent);
+            padding: 2px 8px;
+            border-radius: 2px;
+            font-weight: bold;
+        }
+
+        .host-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .host-card {
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .host-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px var(--accent-glow);
+            transform: translateY(-5px);
+            z-index: 10;
+        }
+
+        .host-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .host-title {
+            font-weight: bold;
+            color: #fff;
+            font-size: 1.1em;
+            font-family: var(--font-code);
+        }
+
+        .host-ip {
+            font-size: 0.8em;
+            color: var(--text-muted);
+            font-family: var(--font-code);
+            margin-top: 4px;
+            display: block;
+        }
+
+        .host-elements {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: auto;
+        }
+
+        .element-badge {
+            font-size: 0.7em;
+            padding: 2px 6px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: var(--font-tech);
+        }
+
+        .metric-badge {
+            padding: 4px 8px;
+            border-radius: 2px;
+            font-size: 0.8em;
+            font-weight: 700;
+            font-family: var(--font-code);
+            text-shadow: 0 0 5px currentColor;
+        }
+
+        .s-crit {
+            color: var(--danger);
+            border: 1px solid var(--danger);
+            background: rgba(255, 42, 109, 0.1);
+        }
+
+        .s-warn {
+            color: var(--warning);
+            border: 1px solid var(--warning);
+            background: rgba(255, 179, 0, 0.1);
+        }
+
+        .s-ok {
+            color: var(--success);
+            border: 1px solid var(--success);
+            background: rgba(0, 255, 157, 0.1);
+        }
+
+        /* =========================================
+           AI CO-PILOT WIDGET (未來感懸浮球)
+           ========================================= */
+        .ai-widget-container {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 20px;
+        }
+
+        /* 懸浮球 (Crystal Orb) */
+        .ai-orb {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.9) 0%, var(--accent) 20%, #000 70%);
+            box-shadow:
+                0 0 30px var(--accent-glow),
+                0 0 60px var(--accent-glow),
+                inset 0 0 20px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            animation: floatOrb 6s ease-in-out infinite;
+        }
+
+        @keyframes floatOrb {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .ai-orb:hover {
+            transform: scale(1.1) rotate(10deg);
+            box-shadow: 0 0 50px var(--accent);
+        }
+
+        .ai-orb i {
+            font-size: 28px;
+            color: #fff;
+            text-shadow: 0 0 10px var(--accent);
+            z-index: 2;
+        }
+
+        /* 狀態光環 (忙碌時使用) */
+        .ai-ring {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-top-color: var(--accent);
+            border-bottom-color: var(--accent);
+            animation: spin 4s linear infinite;
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .ai-ring::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            right: 5px;
+            bottom: 5px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            border-left-color: #fff;
+            border-right-color: #fff;
+            animation: spin 2s reverse linear infinite;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* 狀態樣式：忙碌中 */
+        .status-busy .ai-orb {
+            background: radial-gradient(circle at 30% 30%, #fff 0%, var(--warning) 20%, #000 70%);
+            box-shadow: 0 0 30px var(--warning), 0 0 60px var(--warning);
+            animation: spin 1s linear infinite;
+            /* 快速旋轉 */
+        }
+
+        .status-busy .ai-orb i {
+            color: #000;
+            text-shadow: none;
+        }
+
+        /* AI 視窗 */
+        .ai-window {
+            width: 450px;
+            background: rgba(15, 15, 20, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--accent);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            transform-origin: bottom right;
+            transform: scale(0);
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8), 0 0 20px var(--accent-glow);
+        }
+
+        .ai-window.active {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .ai-window-header {
+            background: linear-gradient(90deg, rgba(0, 242, 255, 0.1), transparent);
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ai-title {
+            font-family: var(--font-tech);
+            color: var(--accent);
+            font-size: 1.1em;
+            letter-spacing: 1px;
+        }
+
+        .ai-body {
+            padding: 20px;
+            max-height: 60vh;
+            overflow-y: auto;
+            color: #ddd;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+
+        /* Markdown Style Override inside Widget */
+        .ai-body h1,
+        .ai-body h2 {
+            color: var(--accent);
+            font-family: var(--font-tech);
+            font-size: 1.1em;
+            border-bottom: 1px dashed #444;
+            padding-bottom: 5px;
+            margin-top: 15px;
+        }
+
+        .ai-body strong {
+            color: #fff;
+            background: rgba(0, 242, 255, 0.1);
+            padding: 0 4px;
+            border-radius: 2px;
+        }
+
+        .ai-body li {
+            margin-bottom: 5px;
+        }
+
+        .ai-footer {
+            padding: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .ai-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .ai-chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            cursor: pointer;
+            transition: 0.2s;
+            font-family: var(--font-code);
+        }
+
+        .ai-chip:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 10px var(--accent);
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            font-family: var(--font-tech);
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .btn-action:hover:not(:disabled) {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        .btn-action:disabled {
+            border-color: #555;
+            color: #555;
+            cursor: not-allowed;
+        }
+
+        /* Context Bar in Window */
+        .active-context {
+            background: #222;
+            padding: 8px 15px;
+            margin: -20px -20px 10px -20px;
+            border-bottom: 1px dashed #444;
+            display: none;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .active-context.show {
+            display: flex;
+        }
+
+        .ctx-tag {
+            background: var(--accent);
+            color: #000;
+            font-size: 0.75em;
+            padding: 2px 8px;
+            border-radius: 2px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        /* RWD */
+        @media (max-width: 600px) {
+            .ai-window {
+                width: 90vw;
+                right: 5vw;
+                bottom: 100px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div class="glass-panel header-section">
+            <div>
+                <h1>AIOps <span style="color:var(--accent);">Global Overwatch</span></h1>
+                <div class="monitor-meta">
+                    <i class="fa-solid fa-server"></i> REGION: AZURE-TOKYO-01 &nbsp;
+                    <i class="fa-solid fa-brain"></i> Agent: <span id="model-name"
+                        th:text="${modelName} ?: 'Live Simulation'" style="color: #00bcd4;">Llama 3.2</span>
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <div class="status-badge">
+                    <div class="pulse-dot"></div> SYSTEM ONLINE
+                </div>
+                <div style="font-family: var(--font-code); color: #666; margin-top: 5px; font-size: 0.8em;">
+                    NEXT UPDATE: <span id="countdown" style="color:var(--text-main);">300</span>s
+                </div>
+            </div>
+        </div>
+
+        <div class="kpi-grid">
+            <div class="glass-panel kpi-card total">
+                <i class="fa-solid fa-network-wired kpi-icon"></i>
+                <div class="kpi-title">HOST COUNT</div>
+                <div class="kpi-value" id="total-hosts">0</div>
+                <div class="kpi-sub" style="color: var(--accent);"><i class="fa-solid fa-check-circle"></i> 100% ONLINE
+                </div>
+            </div>
+            <div class="glass-panel kpi-card crit">
+                <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
+                <div class="kpi-title">CRITICAL ALERTS</div>
+                <div class="kpi-value" id="crit-hosts">0</div>
+                <div class="kpi-sub">IMMEDIATE ACTION</div>
+            </div>
+            <div class="glass-panel kpi-card warn">
+                <i class="fa-solid fa-bell kpi-icon"></i>
+                <div class="kpi-title">WARNINGS</div>
+                <div class="kpi-value" id="warn-hosts">0</div>
+                <div class="kpi-sub">PERFORMANCE DEGRADATION</div>
+            </div>
+            <div class="glass-panel kpi-card healthy">
+                <i class="fa-solid fa-shield-heart kpi-icon"></i>
+                <div class="kpi-title">HEALTHY SYSTEMS</div>
+                <div class="kpi-value" id="ok-hosts">0</div>
+                <div class="kpi-sub">OPTIMAL</div>
+            </div>
+        </div>
+
+        <div class="insights-section">
+            <div class="glass-panel chart-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="margin: 0; font-weight: 300; font-family: var(--font-tech); color: #fff;">
+                        <i class="fa-solid fa-chart-bar" style="color:var(--accent)"></i> ANOMALY DISTRIBUTION
+                    </h3>
+                    <span style="font-size: 0.8em; color: var(--text-muted); font-family: var(--font-code);">CLICK BARS
+                        TO FILTER</span>
+                </div>
+                <div class="bar-chart" id="issue-chart">
+                </div>
+            </div>
+        </div>
+
+        <div class="section-header">
+            <h3 class="section-title">INFRASTRUCTURE GRID</h3>
+            <span id="list-filter-label" class="filter-tag">ALL HOSTS</span>
+        </div>
+        <div class="host-grid" id="host-grid">
+        </div>
+    </div>
+
+    <div class="ai-widget-container" id="ai-widget-container">
+
+        <div class="ai-window" id="ai-window">
+            <div class="ai-window-header">
+                <div class="ai-title"><i class="fa-solid fa-microchip"></i> TACTICAL AI ANALYST</div>
+                <div style="cursor: pointer; opacity: 0.7;" onclick="toggleWidget()">
+                    <i class="fa-solid fa-xmark"></i>
+                </div>
+            </div>
+
+            <div class="ai-body">
+                <div id="ai-context-bar" class="active-context"></div>
+
+                <div id="ai-content" class="fade-in">
+                    SYSTEM STANDBY. WAITING FOR TELEMETRY DATA...
+                </div>
+            </div>
+
+            <div class="ai-footer">
+                <div style="font-size:0.7em; color:#666; margin-bottom: 8px; font-family:var(--font-code);">SUGGESTED
+                    ACTIONS:</div>
+                <div id="ai-tags" class="ai-chips">
+                </div>
+                <button id="btn-reanalyze" class="btn-action" onclick="manualTriggerAI()">
+                    <i class="fa-solid fa-rotate"></i> RE-SCAN & ANALYZE
+                </button>
+            </div>
+        </div>
+
+        <div class="ai-orb" onclick="toggleWidget()" id="ai-orb" title="Open AI Diagnostics">
+            <div class="ai-ring"></div>
+            <i class="fa-solid fa-robot"></i>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 0. 內嵌真實測試數據 ---
+        const MOCK_SERVER_DATA = {
+            "code": 0,
+            "data": {
+                "list": [
+                    {
+                        "host": "104.199.219.254", "alias": "ida 莎普羅 漮華",
+                        "pluginOutput": "OK. instance-1 ping time 36.3ms",
+                        "serviceList": [
+                            { "service": "check_cpu", "pluginOutput": "processor_usage: 64" },
+                            { "service": "check_mem", "pluginOutput": "mempool_perc: 98" }
+                        ]
+                    },
+                    {
+                        "host": "35.185.128.37", "alias": "康鮮 NISORO",
+                        "pluginOutput": "OK. nisoro ping time 36.6ms",
+                        "serviceList": [
+                            { "service": "check_cpu", "pluginOutput": "processor_usage: 14" },
+                            { "service": "check_mem", "pluginOutput": "mempool_perc: 37" }
+                        ]
+                    },
+                    {
+                        "host": "https://omo.sunshinelab.com.tw", "alias": "耀陽實驗室網站",
+                        "pluginOutput": "Web load time 0.751s code 200"
+                    },
+                    {
+                        "host": "https://omo.sunshinelab.com.tw-ssl", "alias": "耀陽實驗室網站憑證到期",
+                        "pluginOutput": "網站憑證到期天數 84 天"
+                    },
+                    {
+                        "host": "https://www.drtsaiclinic.com", "alias": "蔡凱宙網站",
+                        "pluginOutput": "code 403"
+                    },
+                    {
+                        "host": "https://www.drtsaiclinic.com-ssl", "alias": "蔡凱宙網站憑證到期",
+                        "pluginOutput": "網站憑證到期天數 61 天"
+                    },
+                    {
+                        "host": "https://www.khbio.com.tw", "alias": "漮華藥品網站",
+                        "pluginOutput": "code 200 Service Unavailable"
+                    },
+                    {
+                        "host": "https://www.khbio.com.tw-ssl", "alias": "漮華網站憑證到期",
+                        "pluginOutput": "網站憑證到期天數 37 天"
+                    }
+                ]
+            }
+        };
+
+        // --- 設定 ---
+        const AUTO_REFRESH_INTERVAL = 300;
+        let hosts = [];
+        let activeTags = new Set();
+        let countdownVal = AUTO_REFRESH_INTERVAL;
+
+        const issueTypes = {
+            "CPU_SATURATION": { label: "CPU OVERLOAD", color: "#ff2a6d" },
+            "MEM_LEAK": { label: "MEMORY LEAK", color: "#ffb300" },
+            "SSL_EXPIRY": { label: "SSL EXPIRY", color: "#d264ff" },
+            "WEB_ERROR": { label: "WEB ERROR", color: "#ff2a6d" },
+            "HEALTHY": { label: "HEALTHY", color: "#00ff9d" }
+        };
+
+        // --- 1. Parser ---
+        function parseRealData(jsonData) {
+            const rawList = jsonData.data.list;
+            const adaptedHosts = [];
+
+            rawList.forEach(item => {
+                let status = 'OK';
+                let issueType = 'HEALTHY';
+                let metricLabel = 'OK';
+                let alchemyElements = [];
+
+                if (item.serviceList && item.serviceList.length > 0) {
+                    let cpuUsage = 0, memUsage = 0;
+                    const cpuSvc = item.serviceList.find(s => s.service === 'check_cpu');
+                    const memSvc = item.serviceList.find(s => s.service === 'check_mem');
+
+                    if (cpuSvc && cpuSvc.pluginOutput) {
+                        const m = cpuSvc.pluginOutput.match(/usage[:\s]+(\d+)/);
+                        if (m) cpuUsage = parseInt(m[1]);
+                    }
+                    if (memSvc && memSvc.pluginOutput) {
+                        const m = memSvc.pluginOutput.match(/perc[:\s]+(\d+)/);
+                        if (m) memUsage = parseInt(m[1]);
+                    }
+
+                    if (memUsage > 90) {
+                        status = 'CRIT';
+                        issueType = 'MEM_LEAK';
+                        metricLabel = `MEM ${memUsage}%`;
+                        alchemyElements = ['MEMORY LEAK', 'HIGH LOAD'];
+                    } else if (cpuUsage > 80) {
+                        status = 'WARN';
+                        issueType = 'CPU_SATURATION';
+                        metricLabel = `CPU ${cpuUsage}%`;
+                        alchemyElements = ['CPU SATURATION', 'PROCESS'];
+                    } else {
+                        metricLabel = `CPU ${cpuUsage}%`;
+                    }
+                } else if (item.pluginOutput) {
+                    if (item.alias.includes("憑證")) {
+                        const dayMatch = item.pluginOutput.match(/天數\s*(\d+)/);
+                        if (dayMatch) {
+                            const days = parseInt(dayMatch[1]);
+                            metricLabel = `SSL ${days}d`;
+                            if (days < 45) {
+                                status = 'WARN';
+                                issueType = 'SSL_EXPIRY';
+                                alchemyElements = ['SSL CERT', 'EXPIRY'];
+                            }
+                        }
+                    } else if (item.pluginOutput.includes("code 403") || item.pluginOutput.includes("code 500")) {
+                        status = 'CRIT';
+                        issueType = 'WEB_ERROR';
+                        const code = item.pluginOutput.match(/code\s*(\d+)/)?.[1] || 'Err';
+                        metricLabel = `HTTP ${code}`;
+                        alchemyElements = ['WEB ERROR', 'FORBIDDEN'];
+                    } else {
+                        metricLabel = 'HTTP 200';
+                    }
+                }
+
+                adaptedHosts.push({
+                    id: item.alias || item.host,
+                    ip: item.host,
+                    status: status,
+                    issueType: issueType,
+                    metric: metricLabel,
+                    elements: alchemyElements
+                });
+            });
+            return adaptedHosts;
+        }
+
+        // --- 2. Render ---
+        function animateValue(obj, start, end, duration) {
+            if (!obj) return;
+            let startTimestamp = null;
+            const step = (timestamp) => {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                obj.innerHTML = Math.floor(progress * (end - start) + start);
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                }
+            };
+            window.requestAnimationFrame(step);
+        }
+
+        function renderDashboard() {
+            const stats = {
+                total: hosts.length,
+                crit: hosts.filter(h => h.status === 'CRIT').length,
+                warn: hosts.filter(h => h.status === 'WARN').length,
+                ok: hosts.filter(h => h.status === 'OK').length
+            };
+
+            animateValue(document.getElementById('total-hosts'), 0, stats.total, 800);
+            animateValue(document.getElementById('crit-hosts'), 0, stats.crit, 800);
+            animateValue(document.getElementById('warn-hosts'), 0, stats.warn, 800);
+            animateValue(document.getElementById('ok-hosts'), 0, stats.ok, 800);
+
+            const issueCounts = {};
+            hosts.filter(h => h.status !== 'OK').forEach(h => {
+                issueCounts[h.issueType] = (issueCounts[h.issueType] || 0) + 1;
+            });
+
+            const chartContainer = document.getElementById('issue-chart');
+            chartContainer.innerHTML = '';
+
+            const sortedIssues = Object.keys(issueCounts).sort((a, b) => issueCounts[b] - issueCounts[a]);
+            const maxCount = sortedIssues.length > 0 ? issueCounts[sortedIssues[0]] : 1;
+
+            if (sortedIssues.length === 0) {
+                chartContainer.innerHTML = '<div style="color:#666; text-align:center; padding:30px;">ALL SYSTEMS NOMINAL</div>';
+            } else {
+                sortedIssues.forEach(type => {
+                    const count = issueCounts[type];
+                    const meta = issueTypes[type];
+                    const percent = (count / maxCount) * 100;
+
+                    const row = document.createElement('div');
+                    row.className = 'bar-row';
+                    row.onclick = () => filterHostList(type);
+                    row.innerHTML = `
+                        <div class="bar-label" style="color:${meta.color}">
+                            <i class="fa-solid fa-square-poll-vertical"></i> ${meta.label}
+                        </div>
+                        <div class="bar-track">
+                            <div class="bar-fill" style="width: ${percent}%; background: ${meta.color}"></div>
+                        </div>
+                        <div class="bar-count">${count}</div>
+                    `;
+                    chartContainer.appendChild(row);
+                });
+            }
+
+            renderHostList(hosts);
+        }
+
+        function renderHostList(data) {
+            const grid = document.getElementById('host-grid');
+            grid.innerHTML = '';
+
+            const sortedData = [...data].sort((a, b) => {
+                const score = { 'CRIT': 3, 'WARN': 2, 'OK': 1 };
+                return score[b.status] - score[a.status];
+            });
+
+            sortedData.forEach(h => {
+                const card = document.createElement('div');
+                card.className = 'glass-panel host-card';
+
+                let statusClass = 's-ok';
+                if (h.status === 'CRIT') statusClass = 's-crit';
+                if (h.status === 'WARN') statusClass = 's-warn';
+
+                const elementBadges = h.elements.map(el => `<span class="element-badge">${el}</span>`).join('');
+
+                card.innerHTML = `
+                    <div class="host-header">
+                        <div>
+                            <div class="host-title">${h.id}</div>
+                            <div class="host-ip">${h.ip}</div>
+                        </div>
+                        <div class="metric-badge ${statusClass}">${h.metric}</div>
+                    </div>
+                    <div style="font-size:0.8em; color:${issueTypes[h.issueType].color}; font-family:var(--font-tech);">
+                        <i class="fa-solid fa-microchip"></i> ${h.issueType !== 'HEALTHY' ? issueTypes[h.issueType].label : 'NOMINAL'}
+                    </div>
+                    <div class="host-elements">
+                        ${elementBadges}
+                    </div>
+                `;
+                card.onclick = () => { if (h.elements.length > 0) addContextTag(h.elements[0]); };
+                grid.appendChild(card);
+            });
+        }
+
+        function filterHostList(issueType) {
+            const filtered = hosts.filter(h => h.issueType === issueType);
+            renderHostList(filtered);
+            const labelEl = document.getElementById('list-filter-label');
+            labelEl.innerText = `${issueTypes[issueType].label}`;
+            labelEl.style.color = issueTypes[issueType].color;
+        }
+
+        // --- 3. UI Control ---
+
+        function toggleWidget(forceOpen = false) {
+            const windowEl = document.getElementById('ai-window');
+            if (forceOpen) {
+                windowEl.classList.add('active');
+            } else {
+                windowEl.classList.toggle('active');
+            }
+        }
+
+        function updateOrbStatus(status) {
+            const container = document.getElementById('ai-widget-container');
+            container.className = 'ai-widget-container';
+            if (status === 'busy') container.classList.add('status-busy');
+            if (status === 'error') container.classList.add('status-error');
+        }
+
+        // --- 4. Context Logic ---
+
+        function addContextTag(tag) {
+            if (activeTags.has(tag)) return;
+            activeTags.add(tag);
+            renderActiveTags();
+            triggerAIAnalysis(true);
+        }
+
+        function removeContextTag(tag) {
+            activeTags.delete(tag);
+            renderActiveTags();
+            triggerAIAnalysis(true);
+        }
+
+        function renderActiveTags() {
+            const container = document.getElementById('ai-context-bar');
+            container.innerHTML = '';
+
+            if (activeTags.size === 0) {
+                container.classList.remove('show');
+                return;
+            }
+
+            container.classList.add('show');
+            const label = document.createElement('span');
+            label.style.cssText = 'font-size:0.7em; color:#888; display:flex; align-items:center; margin-right:5px;';
+            label.innerText = 'FOCUS ON:';
+            container.appendChild(label);
+
+            activeTags.forEach(tag => {
+                const el = document.createElement('div');
+                el.className = 'ctx-tag';
+                el.innerHTML = `${tag} <span onclick="removeContextTag('${tag}')" style="margin-left:5px;">&times;</span>`;
+                container.appendChild(el);
+            });
+        }
+
+        // --- 5. AI Logic ---
+
+        async function triggerAIAnalysis(isRefinement = false) {
+            const btn = document.getElementById('btn-reanalyze');
+            const aiContent = document.getElementById('ai-content');
+            const aiTags = document.getElementById('ai-tags');
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-gear fa-spin"></i> PROCESSING DATA...';
+            updateOrbStatus('busy');
+
+            // 延遲開啟視窗，讓使用者先看到球在轉
+            // toggleWidget(true); <--- 移除這裡的自動開啟
+
+            // Mocking the Stats
+            const stats = {
+                crit: hosts.filter(h => h.status === 'CRIT').length,
+                warn: hosts.filter(h => h.status === 'WARN').length,
+                issues: {}
+            };
+            hosts.filter(h => h.status !== 'OK').forEach(h => {
+                stats.issues[h.issueType] = (stats.issues[h.issueType] || 0) + 1;
+            });
+
+            // Prompt Construction
+            let prompt = `
+你是一位資深 SRE 與 AIOps 監控專家。請根據以下遙測數據分析系統戰情：
+- CRITICAL: ${stats.crit}
+- WARNING: ${stats.warn}
+- DETAILS: ${JSON.stringify(stats.issues)}
+`;
+
+            if (activeTags.size > 0) {
+                const focusTopics = Array.from(activeTags).join(', ');
+                const relatedHosts = hosts.filter(h =>
+                    activeTags.has(h.issueType) || h.elements.some(el => activeTags.has(el))
+                ).map(h => `${h.id}(${h.metric})`).join(', ');
+
+                prompt += `
+[USER FOCUS] 針對標籤 [${focusTopics}] 進行深度調查。
+[EVIDENCE] ${relatedHosts || "無特定主機數據"}
+[TASK] 1. 深度關聯分析根因。 2. 提供技術修復步驟。
+`;
+            } else {
+                prompt += `[TASK] 提供系統健康度戰術摘要，並指出優先處理事項。`;
+            }
+
+            prompt += `
+[FORMAT] 繁體中文，JSON 格式:
+{
+    "result": "短標題",
+    "summary": "詳細分析 (支援 Markdown **粗體**, * 列表)",
+    "tags": ["關鍵字1", "關鍵字2"],
+    "color": "#Hex"
+}
+`;
+
+            try {
+                const formData = new FormData();
+                formData.append('message', prompt);
+
+                const response = await fetch("/api/monitor/analyze", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("API Connection Failed");
+
+                const resJson = await response.json();
+
+                if (resJson.status === 'success') {
+                    // ★★★ 分析成功後，在這裡開啟視窗 ★★★
+                    toggleWidget(true);
+
+                    let rawText = resJson.response;
+                    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+                    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+
+                    if (!jsonMatch) throw new Error("Format Error");
+                    const data = JSON.parse(jsonMatch[0]);
+
+                    // Render Markdown
+                    if (typeof marked !== 'undefined') {
+                        aiContent.innerHTML = marked.parse(data.summary);
+                    } else {
+                        aiContent.innerText = data.summary;
+                    }
+
+                    // Render Tags
+                    aiTags.innerHTML = data.tags.map(tag =>
+                        `<div class="ai-chip" onclick="addContextTag('${tag}')">${tag}</div>`
+                    ).join('');
+
+                    updateOrbStatus('idle');
+                } else {
+                    throw new Error(resJson.message);
+                }
+
+            } catch (e) {
+                console.error(e);
+                aiContent.innerHTML = `<span style="color:var(--danger)">SYSTEM ERROR: ${e.message}</span>`;
+                updateOrbStatus('error');
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-rotate"></i> RE-SCAN & ANALYZE';
+            }
+        }
+
+        // --- Init ---
+        function initSystem() {
+            hosts = parseRealData(MOCK_SERVER_DATA);
+            renderDashboard();
+
+            setTimeout(() => triggerAIAnalysis(), 1000);
+
+            setInterval(() => {
+                countdownVal--;
+                if (countdownVal <= 0) {
+                    countdownVal = AUTO_REFRESH_INTERVAL;
+                    // hosts = parseRealData(NEW_DATA); // 真實環境取消註解
+                    renderDashboard();
+                    triggerAIAnalysis();
+                }
+                document.getElementById('countdown').innerText = countdownVal;
+            }, 1000);
+        }
+
+        window.addEventListener('load', initSystem);
+
+    </script>
+
+</body>
+
+</html>

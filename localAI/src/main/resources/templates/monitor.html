@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AIOps 智慧維運戰情室</title>
+    <style>
+        /* --- 基礎樣式 (沿用 Dark Mode) --- */
+        body {
+            font-family: 'Segoe UI', 'Roboto', 'Microsoft JhengHei', sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding-bottom: 50px;
+        }
+
+        h1,
+        h2,
+        h3 {
+            color: #fff;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .accent {
+            color: #00bcd4;
+            font-weight: bold;
+        }
+
+        /* --- 頂部：診斷核心 (原本的合成區) --- */
+        .diagnostic-core {
+            position: relative;
+            margin: 30px 0;
+            padding: 30px;
+            background: #252525;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid #333;
+        }
+
+        .core-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            position: relative;
+        }
+
+        /* 插槽樣式：改為數據顯示器 */
+        .slot {
+            width: 140px;
+            height: 120px;
+            border: 2px dashed #555;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.3s;
+            background: #1e1e1e;
+            position: relative;
+        }
+
+        .slot:hover {
+            border-color: #00bcd4;
+            background: #2a2a2a;
+        }
+
+        .slot.filled {
+            border-style: solid;
+            border-color: #00bcd4;
+            background: #00bcd410;
+        }
+
+        .slot-label {
+            font-size: 0.8em;
+            color: #888;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .slot-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .slot-desc {
+            font-size: 0.75em;
+            color: #aaa;
+        }
+
+        /* 觸媒/環境變數插槽 */
+        .slot.context {
+            border-color: #9c27b0;
+            border-style: dotted;
+        }
+
+        .slot.context.filled {
+            border-color: #e040fb;
+            background: #9c27b010;
+        }
+
+        /* --- 下方：即時監控儀表 (原本的倉庫) --- */
+        .telemetry-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .metric-card {
+            background: #2d2d2d;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #555;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            background: #333;
+        }
+
+        .metric-card:active {
+            transform: scale(0.98);
+        }
+
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .metric-name {
+            font-weight: bold;
+            font-size: 0.9em;
+            color: #ccc;
+        }
+
+        .metric-val {
+            font-family: 'Consolas', monospace;
+            font-size: 1.2em;
+            color: #fff;
+        }
+
+        /* 進度條動畫 */
+        .progress-bg {
+            height: 6px;
+            background: #444;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #4CAF50;
+            transition: width 0.5s ease, background 0.5s ease;
+        }
+
+        /* 狀態顏色 helper */
+        .status-normal {
+            border-left-color: #4CAF50;
+        }
+
+        .status-normal .progress-fill {
+            background: #4CAF50;
+        }
+
+        .status-warn {
+            border-left-color: #FFC107;
+        }
+
+        .status-warn .progress-fill {
+            background: #FFC107;
+        }
+
+        .status-crit {
+            border-left-color: #FF5252;
+        }
+
+        .status-crit .progress-fill {
+            background: #FF5252;
+        }
+
+        /* --- 按鈕與操作 --- */
+        .controls {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .btn-main {
+            padding: 12px 40px;
+            font-size: 1.1em;
+            background: linear-gradient(135deg, #00bcd4, #0097a7);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 188, 212, 0.3);
+            transition: 0.3s;
+        }
+
+        .btn-main:disabled {
+            background: #555;
+            cursor: not-allowed;
+            box-shadow: none;
+            opacity: 0.6;
+        }
+
+        .btn-main:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 6px 15px rgba(0, 188, 212, 0.5);
+        }
+
+        .btn-sim {
+            padding: 8px 20px;
+            font-size: 0.9em;
+            background: #444;
+            color: #aaa;
+            border: 1px solid #666;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+
+        .btn-sim:hover {
+            background: #555;
+            color: #fff;
+        }
+
+        /* --- AI 結果彈窗 (Overlay) --- */
+        .result-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            backdrop-filter: blur(8px);
+        }
+
+        .report-card {
+            background: #1e1e1e;
+            padding: 0;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+            border: 2px solid #333;
+            overflow: hidden;
+            transform: scale(0.9);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .report-card.show {
+            transform: scale(1);
+            opacity: 1;
+        }
+
+        .report-header {
+            padding: 20px;
+            background: #252525;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .report-emoji {
+            font-size: 3em;
+        }
+
+        .report-title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 0;
+            color: #fff;
+        }
+
+        .report-body {
+            padding: 25px;
+            text-align: left;
+        }
+
+        .report-section {
+            margin-bottom: 15px;
+        }
+
+        .label {
+            font-size: 0.8em;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .text {
+            font-size: 1.05em;
+            line-height: 1.6;
+            color: #ddd;
+            white-space: pre-wrap;
+        }
+
+        .report-footer {
+            padding: 15px;
+            background: #252525;
+            border-top: 1px solid #333;
+            text-align: right;
+        }
+
+        /* --- 新增：AI 對話框樣式 --- */
+        .ai-dialog-box {
+            background: #252525;
+            border: 1px solid #444;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            display: none;
+            /* 預設隱藏 */
+            position: relative;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .ai-dialog-box.minimized {
+            padding-bottom: 0;
+        }
+
+        .ai-dialog-box.minimized .ai-typing-text {
+            display: none;
+        }
+
+        .ai-dialog-box.minimized .ai-dialog-header {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .ai-dialog-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #444;
+            padding-bottom: 10px;
+        }
+
+        .ai-typing-text {
+            font-family: 'Consolas', 'Monaco', monospace;
+            line-height: 1.6;
+            color: #e0e0e0;
+            white-space: pre-wrap;
+            font-size: 1.05em;
+        }
+
+        /* 游標閃爍效果 */
+        .cursor::after {
+            content: '|';
+            animation: blink 1s step-end infinite;
+            color: #00bcd4;
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
+            <div>
+                <h1>📊 AIOps <span class="accent">智慧維運</span> 戰情室</h1>
+                <p style="color: #888; margin: 5px 0;">Agent: <span id="model-name"
+                        th:text="${modelName} ?: 'Live Simulation'" style="color: #00bcd4;">Llama 3.2</span></p>
+            </div>
+            <div>
+                <span style="font-size: 0.8em; color: #666;">系統狀態: </span>
+                <span id="sys-status" style="color: #4CAF50;">● 監控中</span>
+            </div>
+        </div>
+
+        <div class="diagnostic-core">
+            <div
+                style="position: absolute; top: 15px; left: 50%; transform: translateX(-50%); font-size: 0.8em; color: #666;">
+                AI 分析輸入源
+            </div>
+
+            <div class="core-row">
+                <div class="slot" id="slot1" onclick="clearSlot(1)">
+                    <span class="slot-label">主要指標 [A]</span>
+                    <span class="slot-value">?</span>
+                    <span class="slot-desc">點擊下方數據選取</span>
+                </div>
+
+                <div style="font-size: 2em; color: #444;">+</div>
+
+                <div class="slot" id="slot2" onclick="clearSlot(2)">
+                    <span class="slot-label">關聯指標 [B]</span>
+                    <span class="slot-value">?</span>
+                    <span class="slot-desc">點擊下方數據選取</span>
+                </div>
+
+                <div style="font-size: 2em; color: #444;">+</div>
+
+                <div class="slot context" id="slot3" onclick="clearSlot(3)">
+                    <span class="slot-label" style="color: #ba68c8;">環境/觸媒 [C]</span>
+                    <span class="slot-value">?</span>
+                    <span class="slot-desc">日誌/時間/事件</span>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button id="analyze-btn" class="btn-main" onclick="analyze()" disabled>🚀 開始 AI 根因分析</button>
+            </div>
+            <div id="loading-msg"
+                style="display: none; text-align: center; color: #00bcd4; margin-top: 15px; font-style: italic;">
+                正在關聯 System Metrics 與 Logs...
+            </div>
+        </div>
+
+        <hr style="border-color: #333; margin: 30px 0;">
+
+        <!-- 新增：AI 回覆對話框 -->
+        <div id="ai-dialog" class="ai-dialog-box" onclick="toggleDialog()">
+            <div class="ai-dialog-header">
+                <span id="ai-dialog-emoji" style="font-size: 1.5em;">🤖</span>
+                <h3 id="ai-dialog-title" style="margin: 0; color: #00bcd4; font-size: 1.2em;">AI Analysis Result</h3>
+            </div>
+            <div id="ai-dialog-content" class="ai-typing-text"></div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>📡 即時遙測數據 (Live Telemetry)</h3>
+            <div class="controls" style="margin: 0;">
+                <button class="btn-sim" onclick="triggerScenario('normal')">模擬: 正常</button>
+                <button class="btn-sim" onclick="triggerScenario('cpu_spike')">模擬: CPU 高載</button>
+                <button class="btn-sim" onclick="triggerScenario('io_wait')">模擬: 磁碟阻塞</button>
+            </div>
+        </div>
+
+        <div class="telemetry-grid" id="telemetry-grid">
+        </div>
+    </div>
+
+    <!-- 舊的 Overlay (保留但暫不使用，或可完全移除) -->
+    <div id="report-overlay" class="result-overlay" onclick="closeReport()">
+        <div class="report-card" id="report-card" onclick="event.stopPropagation()">
+            <div class="report-header" id="report-header">
+                <div class="report-emoji" id="rep-emoji">🔍</div>
+                <div>
+                    <h2 class="report-title" id="rep-title">分析完成</h2>
+                    <span style="font-size: 0.8em; color: #aaa;">Confidence: 92%</span>
+                </div>
+            </div>
+            <div class="report-body">
+                <div class="report-section">
+                    <span class="label">根因分析 (Root Cause)</span>
+                    <div class="text" id="rep-desc">...</div>
+                </div>
+                <div class="report-section">
+                    <span class="label" style="color: #00bcd4;">建議處置 (Action Item)</span>
+                    <div class="text" id="rep-action" style="font-weight: bold;">...</div>
+                </div>
+            </div>
+            <div class="report-footer">
+                <button class="btn-sim" onclick="closeReport()">關閉報告</button>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        // --- 1. 定義監控指標與模擬數據 ---
+        const metrics = [
+            { id: 'cpu_sys', name: 'VM CPU Usage', unit: '%', val: 5, max: 100 },
+            { id: 'cpu_proc', name: 'Process CPU', unit: '%', val: 0.5, max: 100 },
+            { id: 'mem_sys', name: 'System RAM', unit: '%', val: 40, max: 100 },
+            { id: 'mem_proc', name: 'Java Heap', unit: 'MB', val: 512, max: 4096 }, // max 4GB
+            { id: 'io_wait', name: 'Disk I/O Wait', unit: '%', val: 0.1, max: 50 },
+            { id: 'tcp_conn', name: 'TCP Connections', unit: '', val: 50, max: 2000 },
+            { id: 'load_avg', name: 'Load Average (1m)', unit: '', val: 0.2, max: 8 }
+        ];
+
+        const contextEvents = [
+            { name: "Normal Operation", type: "info" },
+            { name: "Backup Job Running", type: "warn" },
+            { name: "Deploy v2.1.0", type: "warn" },
+            { name: "Log: Connection Timeout", type: "crit" },
+            { name: "Log: OutOfMemoryError", type: "crit" }
+        ];
+
+        let simulationInterval;
+        let selectedSlots = [null, null, null]; // [Metric A, Metric B, Context]
+
+        // --- 2. 初始化與模擬迴圈 ---
+        window.onload = function () {
+            renderMetrics();
+            startSimulation();
+        };
+
+        function renderMetrics() {
+            const grid = document.getElementById('telemetry-grid');
+            grid.innerHTML = '';
+
+            metrics.forEach(m => {
+                const card = document.createElement('div');
+                card.className = 'metric-card status-normal';
+                card.id = `card-${m.id}`;
+                card.onclick = () => selectMetric(m);
+
+                // 計算百分比條長度
+                let percent = (m.val / m.max) * 100;
+                if (percent > 100) percent = 100;
+
+                card.innerHTML = `
+                <div class="metric-header">
+                    <span class="metric-name">${m.name}</span>
+                    <span class="metric-val" id="val-${m.id}">${m.val}${m.unit}</span>
+                </div>
+                <div class="progress-bg">
+                    <div class="progress-fill" id="bar-${m.id}" style="width: ${percent}%"></div>
+                </div>
+            `;
+                grid.appendChild(card);
+            });
+
+            // 額外渲染一個 Context 卡片供測試
+            const ctxCard = document.createElement('div');
+            ctxCard.className = 'metric-card';
+            ctxCard.style.borderLeftColor = '#9c27b0';
+            ctxCard.innerHTML = `<div class="metric-header"><span class="metric-name">System Events</span></div><div style="font-size:0.8em; color:#ccc;">Click to simulate Logs</div>`;
+            ctxCard.onclick = () => pickRandomContext();
+            grid.appendChild(ctxCard);
+        }
+
+        // 模擬數據跳動 (Mining Phase)
+        function startSimulation() {
+            if (simulationInterval) clearInterval(simulationInterval);
+            simulationInterval = setInterval(() => {
+                metrics.forEach(m => {
+                    // 隨機微幅波動 (+- 10% 範圍內)
+                    let noise = (Math.random() - 0.5) * (m.max * 0.1);
+                    m.val = Math.max(0, Math.min(m.max, m.val + noise));
+                    // 整形
+                    if (m.unit === '' || m.unit === 'MB') m.val = Math.floor(m.val);
+                    else m.val = parseFloat(m.val.toFixed(1));
+
+                    updateCardUI(m);
+                });
+            }, 1500);
+        }
+
+        function updateCardUI(m) {
+            const valEl = document.getElementById(`val-${m.id}`);
+            const barEl = document.getElementById(`bar-${m.id}`);
+            const cardEl = document.getElementById(`card-${m.id}`);
+
+            if (valEl) valEl.innerText = `${m.val}${m.unit}`;
+
+            let percent = (m.val / m.max) * 100;
+            if (barEl) barEl.style.width = `${percent}%`;
+
+            // 更新顏色狀態
+            cardEl.className = 'metric-card';
+            if (percent > 80) cardEl.classList.add('status-crit');
+            else if (percent > 50) cardEl.classList.add('status-warn');
+            else cardEl.classList.add('status-normal');
+        }
+
+        // 強制觸發特定場景 (Demo 用)
+        function triggerScenario(type) {
+            if (type === 'cpu_spike') {
+                updateMetricVal('cpu_sys', 5);
+                updateMetricVal('cpu_proc', 95); // Java 吃滿 CPU
+                updateMetricVal('load_avg', 6.5);
+            } else if (type === 'io_wait') {
+                updateMetricVal('cpu_sys', 2);
+                updateMetricVal('io_wait', 45); // CPU 閒置但 IO 塞爆
+                updateMetricVal('load_avg', 8.0);
+            } else {
+                // Normal
+                metrics.forEach(m => {
+                    m.val = m.max * 0.1;
+                    updateCardUI(m);
+                });
+            }
+        }
+
+        function updateMetricVal(id, targetVal) {
+            const m = metrics.find(x => x.id === id);
+            if (m) { m.val = targetVal; updateCardUI(m); }
+        }
+
+        // --- 3. 互動邏輯 (Snapshot) ---
+        function selectMetric(m) {
+            // 深拷貝當前數值 (Snapshot)
+            const snapshot = { ...m };
+
+            if (!selectedSlots[0]) {
+                selectedSlots[0] = snapshot;
+                updateSlotUI(1, snapshot);
+            } else if (!selectedSlots[1]) {
+                selectedSlots[1] = snapshot;
+                updateSlotUI(2, snapshot);
+            } else {
+                // 如果前兩格滿了，輪替覆蓋第二格
+                selectedSlots[1] = snapshot;
+                updateSlotUI(2, snapshot);
+            }
+            checkBtn();
+        }
+
+        function pickRandomContext() {
+            const evt = contextEvents[Math.floor(Math.random() * contextEvents.length)];
+            const ctxData = { name: evt.name, val: "Event", unit: "" }; // Format to fit UI
+            selectedSlots[2] = ctxData;
+
+            const el = document.getElementById('slot3');
+            el.innerHTML = `<span class="slot-label" style="color:#e040fb">Event</span><div class="slot-value" style="font-size:1em; text-align:center;">${evt.name}</div>`;
+            el.classList.add('filled');
+            checkBtn(); // Context selection also needs to check the button state
+        }
+
+        function updateSlotUI(num, data) {
+            const el = document.getElementById(`slot${num}`);
+            el.innerHTML = `<span class="slot-label">${data.name}</span><span class="slot-value">${data.val}${data.unit}</span>`;
+            el.classList.add('filled');
+        }
+
+        function clearSlot(num) {
+            selectedSlots[num - 1] = null;
+            const el = document.getElementById(`slot${num}`);
+            const defaultLabels = ["主要指標 [A]", "關聯指標 [B]", "環境/觸媒 [C]"];
+            const defaultDescs = ["點擊下方數據選取", "點擊下方數據選取", "日誌/時間/事件"];
+            const defaultColors = ["", "", "color: #ba68c8;"]; // For slot3 label
+
+            el.innerHTML = `<span class="slot-label" style="${defaultColors[num - 1]}">${defaultLabels[num - 1]}</span><span class="slot-value">?</span><span class="slot-desc">${defaultDescs[num - 1]}</span>`;
+            el.classList.remove('filled');
+            checkBtn();
+        }
+
+        function checkBtn() {
+            // 至少要有兩個數據才能分析
+            document.getElementById('analyze-btn').disabled = !(selectedSlots[0] && selectedSlots[1]);
+        }
+
+        // --- 4. AI 鍊金分析 (Synthesizing) ---
+        async function analyze() {
+            const btn = document.getElementById('analyze-btn');
+            const loading = document.getElementById('loading-msg');
+            btn.disabled = true;
+            loading.style.display = 'block';
+
+            // 準備 Prompt 資料
+            const inputA = `${selectedSlots[0].name}: ${selectedSlots[0].val}${selectedSlots[0].unit}`;
+            const inputB = `${selectedSlots[1].name}: ${selectedSlots[1].val}${selectedSlots[1].unit}`;
+            const ctx = selectedSlots[2] ? selectedSlots[2].name : "None";
+
+            const prompt = `
+你是一位 AIOps 智能維運專家。請分析以下系統指標：
+輸入 1: "${inputA}"
+輸入 2: "${inputB}"
+上下文: "${ctx}"
+
+任務:
+1. 判斷根因 (例如: CPU 飽和, I/O 瓶頸, 記憶體洩漏)。
+2. 建議處置方式 (Action Item)。
+3. 指定嚴重度顏色 (#4CAF50 綠色, #FFC107 橘色, #FF5252 紅色)。
+4. 輸出嚴格的 JSON 格式: {"result": "標題", "emoji": "⚠️", "description": "分析說明...", "action": "建議處置...", "color": "#Hex"}
+5. 請務必使用繁體中文回覆。
+6. 在 'action' 和 'description' 欄位中使用 \\n 進行換行。
+`;
+
+            console.log("Sending Prompt:", prompt);
+
+            try {
+                // 呼叫後端 API
+                const formData = new FormData();
+                formData.append('message', prompt);
+
+                const response = await fetch("/api/monitor/analyze", {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error("API failed");
+                const resJson = await response.json();
+
+                if (resJson.status === 'success') {
+                    let aiContent = resJson.response;
+                    // 嘗試清理 Markdown code block (如果有的話)
+                    aiContent = aiContent.replace(/```json/g, '').replace(/```/g, '').trim();
+
+                    const data = JSON.parse(aiContent);
+                    showReport(data);
+                } else {
+                    throw new Error(resJson.message || "Unknown error");
+                }
+
+            } catch (e) {
+                console.error(e);
+                alert("Analysis Failed: " + e);
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        // --- 5. 報告展示 ---
+        function showReport(data) {
+            // --- 改用打字機效果顯示在頁面上 ---
+            const dialog = document.getElementById('ai-dialog');
+            const contentEl = document.getElementById('ai-dialog-content');
+            const titleEl = document.getElementById('ai-dialog-title');
+            const emojiEl = document.getElementById('ai-dialog-emoji');
+
+            // 設定標題與顏色
+            titleEl.innerText = data.result;
+            titleEl.style.color = data.color;
+            emojiEl.innerText = data.emoji;
+            dialog.style.borderColor = data.color;
+
+            // Format action text to have newlines before numbered items if missing
+            // Also collapse multiple newlines to avoid empty rows
+            let formattedAction = data.action;
+            if (formattedAction) {
+                formattedAction = formattedAction.replace(/(\d+\.)/g, '\n$1').replace(/\n+/g, '\n').trim();
+            }
+
+            // 組合要顯示的文字
+            const fullText = `[Root Cause]\n${data.description}\n\n[Action Item]\n${formattedAction}`;
+
+            // 顯示對話框
+            dialog.style.display = 'block';
+            dialog.classList.remove('minimized'); // 確保展開
+
+            // 開始打字效果
+            typeWriter(contentEl, fullText, 30, () => {
+                // 打字完成後，延遲 2 秒自動縮小
+                setTimeout(() => {
+                    dialog.classList.add('minimized');
+                }, 2000);
+            });
+        }
+
+        // 打字機效果函數
+        function typeWriter(element, text, speed, onComplete) {
+            element.innerHTML = ''; // 清空內容
+            element.classList.add('cursor'); // 加入游標
+
+            let i = 0;
+            function type() {
+                if (i < text.length) {
+                    // 處理換行符號
+                    if (text.charAt(i) === '\n') {
+                        element.innerHTML += '<br>';
+                    } else {
+                        element.innerHTML += text.charAt(i);
+                    }
+                    i++;
+                    setTimeout(type, speed);
+                } else {
+                    element.classList.remove('cursor'); // 打字完成移除游標
+                    if (onComplete) onComplete();
+                }
+            }
+            type();
+        }
+
+        function toggleDialog() {
+            const dialog = document.getElementById('ai-dialog');
+            dialog.classList.toggle('minimized');
+        }
+
+        function closeReport() {
+            const overlay = document.getElementById('report-overlay');
+            const card = document.getElementById('report-card');
+            card.classList.remove('show');
+            setTimeout(() => overlay.style.display = 'none', 300);
+        }
+    </script>
+
+</body>
+
+</html>

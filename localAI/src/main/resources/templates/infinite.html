@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 無限鍊金術 (觸媒版)</title>
+    <style>
+        /* --- 基礎樣式 --- */
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: #222; color: #fff; text-align: center; padding: 20px; margin: 0; }
+        .container { max-width: 700px; margin: 0 auto; padding-bottom: 50px; }
+
+        /* --- 遊戲區域 --- */
+        .crafting-section {
+            position: relative;
+            margin: 40px 0;
+            padding: 20px;
+            background: #2a2a2a;
+            border-radius: 20px;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .catalyst-label { font-size: 0.9em; color: #aaa; margin-bottom: 5px; display: block; }
+
+        .crafting-row { display: flex; justify-content: center; align-items: center; gap: 15px; position: relative; }
+
+        .slot {
+            width: 100px; height: 100px;
+            border: 2px dashed #666; border-radius: 10px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            font-size: 2em; cursor: pointer; transition: 0.3s;
+            background: #1e1e1e; z-index: 2;
+        }
+        .slot:hover { border-color: #4CAF50; background: #333; }
+        .slot.filled { border-style: solid; border-color: #4CAF50; background: #2e3b2e; }
+
+        /* 觸媒插槽樣式 */
+        .slot.catalyst {
+            border-color: #9c27b0; /* 紫色代表神秘/觸媒 */
+            border-style: dotted;
+            width: 80px; height: 80px; /* 稍微小一點 */
+            font-size: 1.5em;
+        }
+        .slot.catalyst:hover { border-color: #e040fb; background: #3a1c3f; }
+        .slot.catalyst.filled { border-style: solid; border-color: #e040fb; background: #4a148c; }
+
+        /* 連接線 */
+        .connector { font-size: 2em; color: #666; font-weight: bold; }
+
+        /* --- 按鈕與讀取 --- */
+        button { padding: 12px 30px; font-size: 1.2em; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; margin-top: 20px; box-shadow: 0 4px 0 #2e7d32; }
+        button:disabled { background: #555; cursor: not-allowed; opacity: 0.7; box-shadow: none; transform: translateY(4px); }
+        button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 0 #2e7d32; }
+        button:active:not(:disabled) { transform: translateY(4px); box-shadow: none; }
+
+        .loading { display: none; color: #aaa; margin-top: 15px; font-style: italic; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+
+        /* --- 物品清單 --- */
+        .inventory { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 30px; }
+        .item {
+            background: #444; padding: 10px 15px; border-radius: 8px;
+            cursor: pointer; user-select: none; transition: 0.2s;
+            display: flex; align-items: center; gap: 5px;
+            border: 1px solid transparent;
+        }
+        .item:hover { background: #555; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
+
+        /* --- 結果展示彈窗 (Overlay) --- */
+        .result-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: none; justify-content: center; align-items: center;
+            z-index: 1000; backdrop-filter: blur(5px);
+        }
+
+        .result-card {
+            background: #2d2d2d; padding: 40px; border-radius: 20px;
+            text-align: center; max-width: 400px; width: 85%;
+            box-shadow: 0 0 50px rgba(0,0,0,0.6);
+            border: 3px solid #4CAF50;
+            transform: scale(0.8); opacity: 0;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .result-card.show { transform: scale(1); opacity: 1; }
+        .result-emoji { font-size: 6em; margin-bottom: 10px; display: block; }
+        .result-title { font-size: 2.2em; margin: 10px 0; font-weight: bold; color: #fff; }
+        .result-desc { color: #ccc; font-style: italic; margin-bottom: 30px; line-height: 1.6; }
+        .close-btn { background: transparent; border: 2px solid #fff; padding: 8px 20px; font-size: 1em; box-shadow: none; margin-top: 0; }
+        .close-btn:hover { background: #fff; color: #000; transform: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔮 AI 無限鍊金術 <span style="font-size:0.5em; color:#9c27b0; vertical-align: super;">+觸媒</span></h1>
+    <p style="color: #888;">Engine: <span id="model-name" th:text="${modelName} ?: 'Spring AI'" style="color: #4CAF50;">Llama 3.2</span></p>
+
+    <div class="crafting-section">
+
+        <div style="position: absolute; top: -30px; left: 50%; transform: translateX(-50%); text-align: center;">
+            <span class="catalyst-label">觸媒 (選填)</span>
+            <div class="slot catalyst" id="slot3" onclick="clearSlot(3)" title="點擊放入特殊物質以改變反應性質">?</div>
+        </div>
+
+        <div class="crafting-row" style="margin-top: 30px;">
+            <div class="slot" id="slot1" onclick="clearSlot(1)">?</div>
+            <div class="connector">+</div>
+            <div class="slot" id="slot2" onclick="clearSlot(2)">?</div>
+        </div>
+    </div>
+
+    <button id="craft-btn" onclick="craft()" disabled>✨ 開始鍊成</button>
+    <div class="loading" id="loading-msg">AI 正在解析分子結構...</div>
+
+    <hr style="border-color: #444; margin: 30px 0;">
+
+    <h3>元素倉庫</h3>
+    <div class="inventory" id="inventory">
+        <th:block th:if="${items != null}">
+            <div th:each="item : ${items}" class="item"
+                 th:onclick="addToSlot([[${item.name}]], [[${item.emoji}]])"
+                 th:text="${item.emoji} + ' ' + ${item.name}">
+            </div>
+        </th:block>
+
+        <th:block th:unless="${items != null}">
+            <div class="item" onclick="addToSlot('💧 水', '💧')">💧 水</div>
+            <div class="item" onclick="addToSlot('🔥 火', '🔥')">🔥 火</div>
+            <div class="item" onclick="addToSlot('🌍 土', '🌍')">🌍 土</div>
+            <div class="item" onclick="addToSlot('💨 風', '💨')">💨 風</div>
+            <div class="item" onclick="addToSlot('⚡ 雷', '⚡')">⚡ 雷</div>
+            <div class="item" onclick="addToSlot('⛓️ 金屬', '⛓️')">⛓️ 金屬</div>
+            <div class="item" onclick="addToSlot('🌿 草', '🌿')">🌿 草</div>
+            <div class="item" onclick="addToSlot('🧑 人類', '🧑')">🧑 人類</div>
+            <div class="item" onclick="addToSlot('☠️ 毒藥', '☠️')">☠️ 毒藥</div>
+            <div class="item" onclick="addToSlot('💖 愛', '💖')">💖 愛</div>
+            <div class="item" onclick="addToSlot('⚫ 黑暗', '⚫')">⚫ 黑暗</div>
+            <div class="item" onclick="addToSlot('⏳ 時間', '⏳')">⏳ 時間</div>
+        </th:block>
+    </div>
+</div>
+
+<div id="result-overlay" class="result-overlay" onclick="closeResult()">
+    <div class="result-card" id="result-card" onclick="event.stopPropagation()">
+        <span class="result-emoji" id="res-emoji">✨</span>
+        <div class="result-title" id="res-title">新元素</div>
+        <p class="result-desc" id="res-desc">描述文字...</p>
+        <button class="close-btn" onclick="closeResult()">收下</button>
+    </div>
+</div>
+
+<script th:inline="javascript">
+    const API_URL = "/chat";
+    // slots[0] = item1, slots[1] = item2, slots[2] = catalyst
+    let slots = [null, null, null];
+
+    // 1. 自動填入邏輯 (優先填滿 1, 2，最後填 3)
+    function addToSlot(name, emoji) {
+        const cleanName = name.replace(/^[^\w\u4e00-\u9fa5]+/, '').trim();
+        const itemData = { name: cleanName, emoji };
+
+        if (!slots[0]) {
+            slots[0] = itemData;
+            updateSlotUI(1, itemData);
+        } else if (!slots[1]) {
+            slots[1] = itemData;
+            updateSlotUI(2, itemData);
+        } else if (!slots[2]) {
+            // 前兩個滿了，自動填入觸媒
+            slots[2] = itemData;
+            updateSlotUI(3, itemData);
+        } else {
+            // 全滿了，提示使用者
+            // alert("插槽已滿，請點擊插槽清除");
+            // 或者：循環覆蓋第一個? 這裡選擇不動作
+        }
+        checkButton();
+    }
+
+    function clearSlot(num) {
+        slots[num-1] = null;
+        document.getElementById(`slot${num}`).innerHTML = "?";
+        document.getElementById(`slot${num}`).classList.remove("filled");
+        checkButton();
+    }
+
+    function updateSlotUI(num, item) {
+        const el = document.getElementById(`slot${num}`);
+        el.innerHTML = `<div>${item.emoji}</div><div style="font-size:14px; margin-top:5px;">${item.name}</div>`;
+        el.classList.add("filled");
+    }
+
+    function checkButton() {
+        // 只要前兩個有東西，就可以合成 (觸媒是選填)
+        document.getElementById('craft-btn').disabled = !(slots[0] && slots[1]);
+    }
+
+    // 2. 核心邏輯：動態 Prompt
+    async function craft() {
+        const btn = document.getElementById('craft-btn');
+        const loading = document.getElementById('loading-msg');
+
+        const item1 = slots[0].name;
+        const item2 = slots[1].name;
+        const catalyst = slots[2] ? slots[2].name : null;
+
+        // 建構動態 Prompt
+        let userAction = `User combines: "${item1}" + "${item2}".`;
+        if (catalyst) {
+            userAction += `\nCatalyst (Modifier): "${catalyst}". (IMPORTANT: The catalyst must influence the result's adjective, state, or mood, but is not the main material).`;
+        }
+
+        const prompt = `
+You are the engine of an Infinite Alchemy game.
+${userAction}
+
+Your Task:
+1. Synthesize a NEW element.
+2. If a Catalyst is present, use it to mutate the result (e.g., Fire+Water=Steam, but with Catalyst 'Darkness' => 'Poison Gas').
+3. Be creative and witty.
+4. Provide a valid CSS Hex Color code matching the result.
+5. 請使用繁體中文回覆, 不需要加上羅馬拼音
+
+Output Format (Strict JSON, No Markdown):
+{
+    "result": "Element Name (Traditional Chinese)",
+    "emoji": "Relevant Emoji",
+    "description": "Short witty description (Traditional Chinese)",
+    "color": "#HexCode"
+}
+`;
+
+        btn.disabled = true;
+        loading.style.display = 'block';
+
+        try {
+            const response = await fetch(API_URL + "?message=" + encodeURIComponent(prompt), { method: 'GET' });
+            if (!response.ok) throw new Error("API Error");
+
+            let textData = await response.text();
+            console.log("Raw:", textData);
+
+            textData = textData.replace(/```json/gi, "").replace(/```/g, "").trim();
+            const jsonMatch = textData.match(/\{[\s\S]*\}/);
+
+            if (!jsonMatch) throw new Error("JSON Parse Error");
+            const data = JSON.parse(jsonMatch[0]);
+
+            showResult(data);
+            addInventoryItem(data.result, data.emoji, data.color);
+
+            // 合成後清空所有插槽
+            clearSlot(1);
+            clearSlot(2);
+            clearSlot(3);
+
+        } catch (error) {
+            alert("合成失敗: " + error);
+        } finally {
+            btn.disabled = false;
+            loading.style.display = 'none';
+        }
+    }
+
+    // --- UI 輔助 ---
+    function showResult(data) {
+        const overlay = document.getElementById('result-overlay');
+        const card = document.getElementById('result-card');
+
+        document.getElementById('res-emoji').innerText = data.emoji;
+        document.getElementById('res-title').innerText = data.result;
+        document.getElementById('res-desc').innerText = data.description;
+
+        const themeColor = data.color || '#4CAF50';
+        card.style.borderColor = themeColor;
+        document.getElementById('res-title').style.color = themeColor;
+
+        overlay.style.display = 'flex';
+        setTimeout(() => card.classList.add('show'), 10);
+    }
+
+    function closeResult() {
+        const overlay = document.getElementById('result-overlay');
+        const card = document.getElementById('result-card');
+        card.classList.remove('show');
+        setTimeout(() => overlay.style.display = 'none', 300);
+    }
+
+    function addInventoryItem(name, emoji, color = null) {
+        const div = document.createElement('div');
+        div.className = 'item';
+        div.innerHTML = `${emoji} ${name}`;
+        if (color) {
+            div.style.border = `1px solid ${color}`;
+            div.style.boxShadow = `0 0 8px ${color}30`;
+        }
+        div.onclick = () => addToSlot(name, emoji);
+        document.getElementById('inventory').appendChild(div);
+    }
+</script>
+
+</body>
+</html>

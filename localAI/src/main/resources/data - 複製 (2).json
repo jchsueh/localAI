@@ -1,0 +1,80 @@
+{
+    "modelName": "gemma3:latest",
+    "serverData": {
+        "code": 0,
+        "data": {
+            "list": [
+                {
+                    "host": "192.168.100.50",
+                    "alias": "核心交易資料庫 (DB-Main)",
+                    "pluginOutput": "OK. ping time 12.5ms",
+                    "serviceList": [
+                        {
+                            "service": "check_cpu",
+                            "pluginOutput": "processor_usage: 95"
+                        },
+                        {
+                            "service": "check_mem",
+                            "pluginOutput": "mempool_perc: 60"
+                        }
+                    ]
+                },
+                {
+                    "host": "192.168.100.51",
+                    "alias": "報表運算伺服器 (BI-Srv)",
+                    "pluginOutput": "OK. ping time 15.2ms",
+                    "serviceList": [
+                        {
+                            "service": "check_cpu",
+                            "pluginOutput": "processor_usage: 45"
+                        },
+                        {
+                            "service": "check_mem",
+                            "pluginOutput": "mempool_perc: 92"
+                        }
+                    ]
+                },
+                {
+                    "host": "10.5.20.10",
+                    "alias": "內部檔案伺服器 (File-Share)",
+                    "pluginOutput": "OK. ping time 5.1ms",
+                    "serviceList": [
+                        {
+                            "service": "check_cpu",
+                            "pluginOutput": "processor_usage: 12"
+                        },
+                        {
+                            "service": "check_mem",
+                            "pluginOutput": "mempool_perc: 28"
+                        }
+                    ]
+                },
+                {
+                    "host": "https://api.payment-gateway.com",
+                    "alias": "金流支付 API",
+                    "pluginOutput": "code 502 Bad Gateway"
+                },
+                {
+                    "host": "https://hrm.company.internal",
+                    "alias": "人資差勤系統",
+                    "pluginOutput": "Web load time 2.8s code 200"
+                },
+                {
+                    "host": "https://shop.promotion.com.tw-ssl",
+                    "alias": "活動促銷網站憑證",
+                    "pluginOutput": "網站憑證到期天數 5 天"
+                },
+                {
+                    "host": "https://vpn.office.com-ssl",
+                    "alias": "遠端 VPN 憑證",
+                    "pluginOutput": "網站憑證到期天數 42 天"
+                },
+                {
+                    "host": "https://www.official-site.com",
+                    "alias": "企業形象官網",
+                    "pluginOutput": "Web load time 0.45s code 200"
+                }
+            ]
+        }
+    }
+}
