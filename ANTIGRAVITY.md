@@ -4,7 +4,7 @@
 
 專案名稱：localAI (AI for Spring Boot)
 專案用途：系統監控與 AI 診斷 (Spring Boot + Ollama/SNMP)
-主要工作目錄：d:/project/Antigravity2026/localAI
+主要工作目錄：d:/project/Antigravity2026
 GitHub repo：https://github.com/jchsueh/localAI
 預設 branch：main
 
