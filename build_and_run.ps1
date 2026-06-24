@@ -3,7 +3,7 @@
 
 # Build and Test
 Write-Host "Building and Testing..."
-mvn clean install -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true -DskipTests
+mvn clean install "-Dmaven.wagon.http.ssl.insecure=true" "-Dmaven.wagon.http.ssl.allowall=true" "-DskipTests"
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Build failed."
     exit $LASTEXITCODE
@@ -11,4 +11,4 @@ if ($LASTEXITCODE -ne 0) {
 
 # Run
 Write-Host "Starting Application..."
-mvn spring-boot:run -Dmaven.wagon.http.ssl.insecure=true -Dmaven.wagon.http.ssl.allowall=true
+mvn spring-boot:run "-Dmaven.wagon.http.ssl.insecure=true" "-Dmaven.wagon.http.ssl.allowall=true"
