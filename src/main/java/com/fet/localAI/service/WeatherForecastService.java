@@ -12,6 +12,13 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
+import java.security.cert.X509Certificate;
+import java.security.SecureRandom;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.HostnameVerifier;
 
 @Service
 public class WeatherForecastService {
@@ -23,11 +30,37 @@ public class WeatherForecastService {
     private final org.springframework.web.client.RestTemplate restTemplate;
     private final String apiKey;
 
+    private static org.springframework.http.client.ClientHttpRequestFactory createUnsecureRequestFactory() {
+        try {
+            TrustManager[] trustAllCerts = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return null; }
+                    public void checkClientTrusted(X509Certificate[] certs, String authType) {}
+                    public void checkServerTrusted(X509Certificate[] certs, String authType) {}
+                }
+            };
+
+            SSLContext sc = SSLContext.getInstance("SSL");
+            sc.init(null, trustAllCerts, new SecureRandom());
+
+            java.net.http.HttpClient httpClient = java.net.http.HttpClient.newBuilder()
+                    .sslContext(sc)
+                    .sslParameters(new javax.net.ssl.SSLParameters())
+                    .build();
+
+            return new org.springframework.http.client.JdkClientHttpRequestFactory(httpClient);
+        } catch (Exception e) {
+            throw new RuntimeException("無法建立不安全的 ClientHttpRequestFactory", e);
+        }
+    }
+
     public WeatherForecastService(
             RestTemplateBuilder restTemplateBuilder,
             ObjectMapper objectMapper,
             @Value("${cwa.api.key:}") String apiKey) {
-        this.restTemplate = restTemplateBuilder.build();
+        this.restTemplate = restTemplateBuilder
+                .requestFactory(() -> createUnsecureRequestFactory())
+                .build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
     }
@@ -58,7 +91,7 @@ public class WeatherForecastService {
         }
 
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(builder.build(true).toUri(), String.class);
+            ResponseEntity<String> response = restTemplate.getForEntity(builder.build().encode().toUri(), String.class);
             return objectMapper.readTree(response.getBody());
         } catch (RestClientException | IOException e) {
             throw new IllegalStateException("無法取得氣象資料", e);

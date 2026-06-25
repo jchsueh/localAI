@@ -1,0 +1,1276 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Ops — Loop Engineering 指揮中心</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<style>
+    :root {
+        --navy-dark: #040b16;
+        --navy-light: #112240;
+        --bg-panel: rgba(17, 34, 64, 0.65);
+        --border-panel: rgba(45, 66, 100, 0.5);
+        --neon-green: #22c55e;
+        --neon-red: #ef4444;
+        --neon-cyan: #06b6d4;
+        --text-main: #e2e8f0;
+    }
+
+    body {
+        background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-light) 50%, var(--navy-dark) 100%) !important;
+        background-attachment: fixed;
+        color: var(--text-main);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .glass-panel {
+        background: linear-gradient(145deg, rgba(20, 36, 60, 0.75) 0%, rgba(8, 16, 28, 0.85) 100%);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        border: 1px solid var(--border-panel);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    .stat-card { transition: all 0.3s ease; cursor: pointer; }
+    .stat-card:hover {
+        transform: scale(1.02) translateY(-2px);
+        border-color: #3b82f6;
+        background: rgba(30, 58, 138, 0.4);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+    }
+
+    .stream-card { transition: all 0.3s ease; }
+    .stream-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(96, 165, 250, 0.6);
+        box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    }
+
+    .modal-overlay { transition: opacity 0.3s ease; }
+    .modal-content { transition: transform 0.3s ease; }
+
+    ::-webkit-scrollbar { width: 8px; }
+    ::-webkit-scrollbar-track { background: rgba(4, 11, 22, 0.5); }
+    ::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 4px; border: 1px solid #040b16; }
+    ::-webkit-scrollbar-thumb:hover { background: #2d5482; }
+
+    @keyframes dash { to { stroke-dashoffset: -20; } }
+    .animate-dash { animation: dash 1s linear infinite; }
+    @keyframes slow-dash { to { stroke-dashoffset: -40; } }
+    .animate-slow-dash { animation: slow-dash 2s linear infinite; }
+
+    /* ===== Loop Engineering Panel ===== */
+    #loop-panel {
+        position: fixed;
+        top: 0; left: 0;
+        height: 100vh; width: 440px;
+        z-index: 200;
+        display: flex; flex-direction: column;
+        background: linear-gradient(160deg, rgba(6, 15, 32, 0.98) 0%, rgba(3, 8, 20, 0.99) 100%);
+        border-right: 1px solid rgba(99, 102, 241, 0.25);
+        box-shadow: 8px 0 40px rgba(0,0,0,0.6);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        transform: translateX(-100%);
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+    }
+    #loop-panel.open { transform: translateX(0); }
+
+    #loop-toggle-btn {
+        position: fixed;
+        top: 50%; left: 0;
+        transform: translateY(-50%);
+        z-index: 201;
+        transition: left 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+        border: 1px solid rgba(99, 102, 241, 0.5);
+        border-left: none;
+        border-radius: 0 12px 12px 0;
+        padding: 14px 10px;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 8px;
+        box-shadow: 4px 0 20px rgba(99, 102, 241, 0.25);
+    }
+    #loop-toggle-btn:hover {
+        background: linear-gradient(135deg, #312e81 0%, #3730a3 100%);
+        box-shadow: 4px 0 24px rgba(99, 102, 241, 0.45);
+    }
+    #loop-toggle-btn.open { left: 440px; }
+
+    /* ===== AI 對話框 Drawer ===== */
+    #ai-chat-drawer {
+        position: fixed; top: 0; right: 0;
+        height: 100vh; width: 380px;
+        z-index: 200; display: flex; flex-direction: column;
+        background: linear-gradient(160deg, rgba(10, 20, 40, 0.97) 0%, rgba(5, 12, 28, 0.98) 100%);
+        border-left: 1px solid rgba(59, 130, 246, 0.25);
+        box-shadow: -8px 0 40px rgba(0,0,0,0.6);
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        transform: translateX(100%);
+        transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    #ai-chat-drawer.open { transform: translateX(0); }
+
+    #chat-toggle-btn {
+        position: fixed; top: 50%; right: 0;
+        transform: translateY(-50%);
+        z-index: 201;
+        transition: right 0.35s cubic-bezier(0.4, 0, 0.2, 1), transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        background: linear-gradient(135deg, #1e3a5f 0%, #0f2d52 100%);
+        border: 1px solid rgba(96, 165, 250, 0.4);
+        border-right: none;
+        border-radius: 12px 0 0 12px;
+        padding: 14px 10px;
+        display: flex; flex-direction: column;
+        align-items: center; gap: 8px;
+        box-shadow: -4px 0 20px rgba(59, 130, 246, 0.2);
+    }
+    #chat-toggle-btn:hover {
+        background: linear-gradient(135deg, #2d5282 0%, #1a3a6e 100%);
+        box-shadow: -4px 0 24px rgba(59, 130, 246, 0.4);
+    }
+    #chat-toggle-btn.open { right: 380px; }
+
+    .chat-msg-user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #1e40af 0%, #1d4ed8 100%);
+        color: #e2e8f0; border-radius: 16px 16px 4px 16px;
+        padding: 10px 14px; max-width: 78%;
+        font-size: 0.85rem; line-height: 1.5;
+        box-shadow: 0 4px 12px rgba(29, 78, 216, 0.3);
+    }
+    .chat-msg-ai {
+        align-self: flex-start;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%);
+        color: #cbd5e1; border-radius: 16px 16px 16px 4px;
+        padding: 10px 14px; max-width: 85%;
+        font-size: 0.85rem; line-height: 1.6;
+        border: 1px solid rgba(59, 130, 246, 0.15);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    }
+    .chat-msg-ai strong { color: #93c5fd; }
+    .chat-msg-ai .tag {
+        display: inline-block; background: rgba(59,130,246,0.15);
+        color: #60a5fa; border: 1px solid rgba(59,130,246,0.3);
+        border-radius: 6px; padding: 1px 6px;
+        font-size: 0.75rem; font-family: monospace;
+    }
+    /* Markdown Styles for AI chat */
+    .chat-markdown p { margin-bottom: 0.5em; }
+    .chat-markdown p:last-child { margin-bottom: 0; }
+    .chat-markdown ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 0.5em; }
+    .chat-markdown ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 0.5em; }
+    .chat-markdown code { background: rgba(0,0,0,0.3); padding: 0.1em 0.3em; border-radius: 4px; font-family: monospace; color: #a5b4fc; }
+    .chat-markdown pre { background: rgba(0,0,0,0.4); padding: 0.5em; border-radius: 6px; overflow-x: auto; margin-bottom: 0.5em; }
+    .chat-markdown pre code { background: transparent; padding: 0; color: #e2e8f0; }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .typing-dot { animation: blink 1s infinite; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    #chat-input {
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        color: #e2e8f0; border-radius: 10px;
+        padding: 10px 14px; font-size: 0.85rem;
+        resize: none; outline: none; transition: border-color 0.2s;
+        font-family: inherit;
+    }
+    #chat-input:focus { border-color: rgba(96, 165, 250, 0.6); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+    #chat-input::placeholder { color: #475569; }
+
+    .quick-tag {
+        background: rgba(30, 58, 138, 0.3);
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        color: #93c5fd; border-radius: 20px;
+        padding: 4px 12px; font-size: 0.75rem;
+        cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .quick-tag:hover {
+        background: rgba(30, 58, 138, 0.6);
+        border-color: rgba(96, 165, 250, 0.5);
+    }
+
+    /* ===== Loop 元素徽章 ===== */
+    .loop-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        font-size: 0.7rem; font-weight: 600;
+        padding: 2px 8px; border-radius: 20px;
+        letter-spacing: 0.04em;
+    }
+    .lb-auto   { background: rgba(99,102,241,0.18); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.3); }
+    .lb-wt     { background: rgba(20,184,166,0.18); color: #5eead4; border: 1px solid rgba(20,184,166,0.3); }
+    .lb-skill  { background: rgba(245,158,11,0.18); color: #fcd34d; border: 1px solid rgba(245,158,11,0.3); }
+    .lb-conn   { background: rgba(59,130,246,0.18); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+    .lb-agent  { background: rgba(34,197,94,0.18); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+    .lb-mem    { background: rgba(168,85,247,0.18); color: #d8b4fe; border: 1px solid rgba(168,85,247,0.3); }
+
+    /* Loop step in panel */
+    .loop-step {
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.07);
+        transition: all 0.25s;
+    }
+    .loop-step:hover { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.05); }
+    .loop-step.active { border-color: rgba(99,102,241,0.6); box-shadow: 0 0 16px rgba(99,102,241,0.2); }
+
+    .step-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.95rem; flex-shrink: 0;
+    }
+
+    /* Memory file badge */
+    .mem-file {
+        background: rgba(168,85,247,0.1);
+        border: 1px solid rgba(168,85,247,0.25);
+        border-radius: 8px; padding: 8px 12px;
+        font-size: 0.75rem; color: #d8b4fe;
+        font-family: monospace;
+        display: flex; align-items: center; gap: 8px;
+    }
+
+    @keyframes loop-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.6;transform:scale(0.92)} }
+    .loop-running { animation: loop-pulse 2.5s ease-in-out infinite; }
+
+    @keyframes flow-r { from{stroke-dashoffset:24} to{stroke-dashoffset:0} }
+
+    /* Sub-agent split line */
+    .sub-agent-row {
+        display: flex; gap: 8px; align-items: stretch;
+    }
+    .sub-agent-card {
+        flex: 1; border-radius: 8px; padding: 10px 12px;
+        border: 1px solid rgba(255,255,255,0.07);
+        font-size: 0.78rem;
+    }
+</style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+<!-- ========================================
+     HEADER
+     ======================================== -->
+<header class="glass-panel px-6 py-4 flex justify-between items-center z-10 shadow-lg">
+    <div class="flex items-center space-x-3">
+        <!-- Loop toggle hint -->
+        <div class="mr-2 flex items-center gap-2 text-indigo-400 text-xs bg-indigo-900/20 border border-indigo-700/30 rounded-full px-3 py-1 cursor-pointer hover:bg-indigo-900/40 transition" onclick="toggleLoopPanel()" title="開啟迴圈工程面板">
+            <i class="fas fa-sync-alt loop-running text-indigo-400"></i>
+            <span class="hidden sm:inline font-semibold tracking-wide">LOOP</span>
+        </div>
+        <i class="fas fa-robot text-blue-400 text-3xl drop-shadow-[0_0_8px_rgba(96,165,250,0.8)]"></i>
+        <div>
+            <h1 class="text-xl font-bold tracking-wider text-white">AI Ops Agent</h1>
+            <p class="text-xs text-blue-400 font-mono">LOOP ENGINEERING · NEXT-GEN ORCHESTRATOR</p>
+        </div>
+    </div>
+    <div class="flex items-center space-x-4 text-sm">
+        <!-- Loop 狀態指示器 -->
+        <div class="hidden md:flex items-center gap-3">
+            <span class="loop-badge lb-auto"><i class="fas fa-rotate"></i> 自動化</span>
+            <span class="loop-badge lb-wt"><i class="fas fa-code-branch"></i> Worktree x3</span>
+            <span class="loop-badge lb-agent"><i class="fas fa-robot"></i> Sub-agent ON</span>
+        </div>
+        <div class="flex items-center gap-3 mr-4">
+            <a href="/weather" class="text-gray-400 hover:text-white transition"><i class="fas fa-cloud-sun"></i> 天氣</a>
+            <a href="/" class="text-gray-400 hover:text-white transition"><i class="fas fa-home"></i> 首頁</a>
+        </div>
+        <span class="bg-blue-900/40 text-blue-300 px-4 py-1.5 rounded-full border border-blue-700/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]">
+            <i class="fas fa-satellite-dish mr-2 animate-pulse"></i> 企業全網監控中
+        </span>
+        <div class="w-10 h-10 bg-gray-800 border border-gray-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-gray-700 transition">
+            <i class="fas fa-user text-gray-300"></i>
+        </div>
+    </div>
+</header>
+
+<main class="flex-1 flex overflow-hidden p-6 space-x-6">
+
+    <!-- ========================================
+         LEFT SIDEBAR — Infrastructure
+         ======================================== -->
+    <aside class="w-[28%] space-y-6 flex flex-col overflow-y-auto pr-3 pb-6">
+
+        <div>
+            <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-server text-gray-500 mr-2"></i>Infrastructure</h2>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div onclick="showDetails('hosts-running', '運行中主機清單')" class="glass-panel p-4 rounded-xl flex flex-col justify-center items-center stat-card border-b-2 border-blue-500">
+                    <i class="fas fa-cube text-blue-400 text-xl mb-1"></i>
+                    <span id="stat-hosts-running" class="text-2xl font-bold text-white">128</span>
+                    <span class="text-xs text-gray-400 mt-1">運行中</span>
+                </div>
+                <div onclick="showDetails('hosts-down', '斷線中主機清單')" class="glass-panel p-4 rounded-xl flex flex-col justify-center items-center stat-card border-b-2 border-red-500 bg-red-900/10">
+                    <i class="fas fa-ban text-red-400 text-xl mb-1"></i>
+                    <span id="stat-hosts-down" class="text-2xl font-bold text-red-400">14</span>
+                    <span class="text-xs text-gray-400 mt-1">異常斷線</span>
+                </div>
+            </div>
+            <div onclick="showDetails('network-warning', '網路品質預警清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-teal-500 bg-teal-900/10">
+                <div class="flex items-center space-x-3">
+                    <div class="w-8 h-8 flex items-center justify-center bg-teal-900/30 rounded-lg text-teal-400"><i class="fas fa-wifi"></i></div>
+                    <span class="text-sm">網路品質衰退預警</span>
+                </div>
+                <span id="stat-network-warning" class="text-xl font-bold text-teal-400">1</span>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-chart-line text-gray-500 mr-2"></i>Performance & Capacity</h2>
+            <div class="space-y-3">
+                <div onclick="showDetails('metrics-normal', '正常監控指標清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-green-500">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 flex items-center justify-center bg-green-900/30 rounded-lg text-green-400"><i class="fas fa-check"></i></div>
+                        <span class="text-sm">健康指標</span>
+                    </div>
+                    <span id="stat-metrics-normal" class="text-xl font-bold text-green-400">842</span>
+                </div>
+                <div onclick="showDetails('metrics-abnormal', '異常監控指標清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-orange-500 bg-orange-900/10">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 flex items-center justify-center bg-orange-900/30 rounded-lg text-orange-400"><i class="fas fa-exclamation-circle"></i></div>
+                        <span class="text-sm">效能瓶頸預警</span>
+                    </div>
+                    <span id="stat-metrics-abnormal" class="text-xl font-bold text-orange-400">24</span>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center"><i class="fas fa-shield-halved text-gray-500 mr-2"></i>Security & Compliance</h2>
+            <div class="space-y-3">
+                <div onclick="showDetails('security-alerts', '資安威脅清單')" class="glass-panel p-3 px-4 rounded-xl flex justify-between items-center stat-card border-l-4 border-purple-500 bg-purple-900/10">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 flex items-center justify-center bg-purple-900/30 rounded-lg text-purple-400"><i class="fas fa-biohazard"></i></div>
+                        <span class="text-sm">主動防禦攔截</span>
+                    </div>
+                    <span id="stat-security-alerts" class="text-xl font-bold text-purple-400 animate-pulse">3</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== Loop 記憶狀態卡 (新增) ===== -->
+        <div>
+            <h2 class="text-xs text-gray-400 font-semibold uppercase tracking-widest mb-3 flex items-center">
+                <i class="fas fa-brain text-gray-500 mr-2"></i>Loop 記憶層
+                <span class="ml-2 loop-badge lb-mem">+1 Memory</span>
+            </h2>
+            <div class="glass-panel rounded-xl p-4 space-y-2 border border-purple-900/30 bg-purple-900/5">
+                <div class="mem-file">
+                    <i class="fas fa-file-alt text-purple-400"></i>
+                    <span>incident_state.md</span>
+                    <span class="ml-auto text-purple-500 text-xs">已更新 2m ago</span>
+                </div>
+                <div class="mem-file">
+                    <i class="fas fa-book text-amber-400/70"></i>
+                    <span style="color:#fcd34d99">NAGIOS_SKILLS.md</span>
+                    <span class="ml-auto text-purple-500 text-xs">v2.4</span>
+                </div>
+                <div class="mem-file">
+                    <i class="fas fa-history text-purple-400/60"></i>
+                    <span style="color:#d8b4fe80">loop_run_log.md</span>
+                    <span class="ml-auto text-purple-500 text-xs">run #47</span>
+                </div>
+                <p class="text-xs text-gray-600 pt-1">代理程式跨週期記憶 · 防止重試已知失敗路徑</p>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- ========================================
+         MAIN — Task Stream
+         ======================================== -->
+    <section class="flex-1 overflow-y-auto pr-2 space-y-5 pb-10" id="task-stream">
+        <div class="flex justify-between items-end mb-2 border-b border-gray-700 pb-3 sticky top-0 bg-[#0B1120] z-20 pt-2">
+            <div>
+                <h2 class="text-2xl font-bold text-white drop-shadow-md">AI 自動調度任務流</h2>
+                <p class="text-xs text-gray-500 mt-1">由迴圈工程自動分類 · 每項任務均經雙代理程式審查後送出</p>
+            </div>
+            <span class="text-sm text-blue-400 bg-blue-900/30 px-3 py-1 rounded-full"><i class="fas fa-layer-group mr-1"></i>已收斂為 5 項核心處置</span>
+        </div>
+
+        <!-- Task 1: Security -->
+        <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-purple-500 relative" id="task-sec">
+            <div class="absolute top-4 right-4 bg-purple-500/20 text-purple-300 text-xs px-2 py-1 rounded font-mono shadow-[0_0_8px_rgba(168,85,247,0.4)]">URGENT: SECURITY</div>
+            <!-- Loop badges -->
+            <div class="flex flex-wrap gap-2 mb-3">
+                <span class="loop-badge lb-auto"><i class="fas fa-rotate mr-1"></i>① 自動化觸發</span>
+                <span class="loop-badge lb-wt"><i class="fas fa-code-branch mr-1"></i>② Worktree #A1</span>
+                <span class="loop-badge lb-skill"><i class="fas fa-book mr-1"></i>③ SECURITY_SKILLS</span>
+                <span class="loop-badge lb-agent"><i class="fas fa-robot mr-1"></i>⑤ 雙代理審查通過</span>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-shield-virus mr-2 text-purple-400"></i>偵測到內部主機橫向攻擊 (勒索病毒防禦)</h3>
+            <!-- Sub-agent summary -->
+            <div class="sub-agent-row mb-3">
+                <div class="sub-agent-card" style="background:rgba(34,197,94,0.05); border-color:rgba(34,197,94,0.2);">
+                    <p class="text-green-400 font-semibold mb-1 text-xs"><i class="fas fa-search mr-1"></i>Agent A · 調查者</p>
+                    <p class="text-gray-400">分析 EDR + 防火牆日誌，起草隔離腳本 <code class="text-green-300/80">isolate_hr04.sh</code></p>
+                </div>
+                <div class="sub-agent-card" style="background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2);">
+                    <p class="text-red-400 font-semibold mb-1 text-xs"><i class="fas fa-shield-alt mr-1"></i>Agent B · 審查者</p>
+                    <p class="text-gray-400">確認腳本無副作用，無誤刪風險 — <span class="text-green-400">審查通過</span></p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-4">
+                AI 行為分析：<code class="text-purple-300 bg-purple-900/30 px-1 rounded">HR-Desktop-04</code> 正頻繁利用 RDP 與 SMB 協定，對同網段另外 42 臺主機進行異常掃描與連線測試。
+            </p>
+            <div class="flex space-x-3">
+                <button onclick="resolveTask('task-sec', 'purple')" class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(147,51,234,0.4)]">
+                    <i class="fas fa-lock mr-2"></i>授權 AI 執行網路隔離
+                </button>
+                <button onclick="showGraphModal('security')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                    <i class="fas fa-project-diagram mr-2"></i>查看行為軌跡圖
+                </button>
+            </div>
+        </div>
+
+        <!-- Task 2: Packet Loss -->
+        <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-teal-500 relative" id="task-pl">
+            <div class="absolute top-4 right-4 bg-teal-500/20 text-teal-300 text-xs px-2 py-1 rounded font-mono shadow-[0_0_8px_rgba(20,184,166,0.4)]">PREDICTIVE MAINTENANCE</div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <span class="loop-badge lb-auto"><i class="fas fa-rotate mr-1"></i>① 排程預測任務</span>
+                <span class="loop-badge lb-wt"><i class="fas fa-code-branch mr-1"></i>② Worktree #A2</span>
+                <span class="loop-badge lb-skill"><i class="fas fa-book mr-1"></i>③ NETWORK_SKILLS</span>
+                <span class="loop-badge lb-conn"><i class="fas fa-plug mr-1"></i>④ ISP API 連接器</span>
+                <span class="loop-badge lb-agent"><i class="fas fa-robot mr-1"></i>⑤ 雙代理審查通過</span>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-wave-square mr-2 text-teal-400"></i>跨廠區專線 Packet Loss 持續惡化預警</h3>
+            <div class="sub-agent-row mb-3">
+                <div class="sub-agent-card" style="background:rgba(20,184,166,0.05); border-color:rgba(20,184,166,0.2);">
+                    <p class="text-teal-400 font-semibold mb-1 text-xs"><i class="fas fa-search mr-1"></i>Agent A · 調查者</p>
+                    <p class="text-gray-400">分析趨勢模型，起草繞流 SOP 腳本與 ISP 申告單</p>
+                </div>
+                <div class="sub-agent-card" style="background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2);">
+                    <p class="text-red-400 font-semibold mb-1 text-xs"><i class="fas fa-shield-alt mr-1"></i>Agent B · 審查者</p>
+                    <p class="text-gray-400">驗證繞流路徑容量充足，申告單格式符合 ISP 規範 — <span class="text-green-400">通過</span></p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-4">
+                AI 網路預測模型：偵測到 <code class="text-teal-300 bg-teal-900/30 px-1 rounded">HQ-to-Branch-VPN</code> 的 Ping 封包遺失率在過去 6 小時內攀升至 4%。根據趨勢預測，<strong>72 小時內將引發嚴重斷線 (Loss > 15%)</strong>。
+            </p>
+            <div class="bg-black/40 rounded-lg p-4 mb-4 border border-teal-900/50">
+                <h4 class="text-xs text-teal-400 uppercase mb-2 font-bold tracking-wider">AI 預防性繞流 SOP (準備就緒)</h4>
+                <ol class="text-sm space-y-2 text-gray-300 list-decimal list-inside">
+                    <li>自動將關鍵 ERP 流量繞流 (Reroute) 至備援 SD-WAN 線路。</li>
+                    <li>針對異常 ISP 線路發起自動化 MTR 檢測。</li>
+                    <li>自動向 ISP 供應商 API 發送障礙申告單 (Ticket)。</li>
+                </ol>
+            </div>
+            <div class="flex space-x-3">
+                <button onclick="resolveTask('task-pl', 'teal')" class="bg-teal-600 hover:bg-teal-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(20,184,166,0.4)]">
+                    <i class="fas fa-route mr-2"></i>授權 AI 執行流量繞流與報修
+                </button>
+                <button onclick="showGraphModal('packet_loss')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                    <i class="fas fa-chart-line mr-2"></i>查看 Packet Loss 預測圖
+                </button>
+            </div>
+        </div>
+
+        <!-- Task 3: Capacity -->
+        <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-yellow-500 relative" id="task-cap">
+            <div class="absolute top-4 right-4 bg-yellow-500/20 text-yellow-300 text-xs px-2 py-1 rounded font-mono">PREDICTIVE WARNING</div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <span class="loop-badge lb-auto"><i class="fas fa-rotate mr-1"></i>① 排程容量掃描</span>
+                <span class="loop-badge lb-skill"><i class="fas fa-book mr-1"></i>③ DB_SKILLS</span>
+                <span class="loop-badge lb-conn"><i class="fas fa-plug mr-1"></i>④ Cloud API 連接器</span>
+                <span class="loop-badge lb-agent"><i class="fas fa-robot mr-1"></i>⑤ 雙代理審查通過</span>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-database mr-2 text-yellow-400"></i>核心資料庫儲存空間即將耗盡</h3>
+            <div class="sub-agent-row mb-3">
+                <div class="sub-agent-card" style="background:rgba(245,158,11,0.05); border-color:rgba(245,158,11,0.2);">
+                    <p class="text-amber-400 font-semibold mb-1 text-xs"><i class="fas fa-search mr-1"></i>Agent A · 調查者</p>
+                    <p class="text-gray-400">預測磁碟耗盡時間，起草雲端擴容腳本</p>
+                </div>
+                <div class="sub-agent-card" style="background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2);">
+                    <p class="text-red-400 font-semibold mb-1 text-xs"><i class="fas fa-shield-alt mr-1"></i>Agent B · 審查者</p>
+                    <p class="text-gray-400">確認擴容規格符合 DB_SKILLS 規範，預算未超標 — <span class="text-green-400">通過</span></p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-4">
+                AI 趨勢預測：因逢電商大檔期，預測 <code class="text-yellow-300 bg-yellow-900/30 px-1 rounded">Order-DB-Primary</code> 的磁碟空間將於 <strong>45 分鐘後完全耗盡</strong>。AI 已備妥雲端擴容腳本。
+            </p>
+            <div class="flex space-x-3">
+                <button onclick="resolveTask('task-cap', 'yellow')" class="bg-yellow-600 hover:bg-yellow-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(202,138,4,0.4)]">
+                    <i class="fas fa-arrow-up-right-dots mr-2"></i>授權 AI 執行線上擴容
+                </button>
+                <button onclick="showGraphModal('capacity')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                    <i class="fas fa-chart-area mr-2"></i>查看用量趨勢圖
+                </button>
+            </div>
+        </div>
+
+        <!-- Task 4: Network -->
+        <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-red-500 relative" id="task-net">
+            <div class="absolute top-4 right-4 bg-red-500/20 text-red-400 text-xs px-2 py-1 rounded font-mono">CRITICAL</div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <span class="loop-badge lb-auto"><i class="fas fa-rotate mr-1"></i>① 自動化觸發</span>
+                <span class="loop-badge lb-wt"><i class="fas fa-code-branch mr-1"></i>② Worktree #A3</span>
+                <span class="loop-badge lb-skill"><i class="fas fa-book mr-1"></i>③ NETWORK_SKILLS</span>
+                <span class="loop-badge lb-agent"><i class="fas fa-robot mr-1"></i>⑤ 雙代理審查通過</span>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-network-wired mr-2 text-red-400"></i>核心交換機路由崩潰導致批次斷線</h3>
+            <div class="sub-agent-row mb-3">
+                <div class="sub-agent-card" style="background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2);">
+                    <p class="text-red-400 font-semibold mb-1 text-xs"><i class="fas fa-search mr-1"></i>Agent A · 調查者</p>
+                    <p class="text-gray-400">拓樸分析確認根因為 <code class="text-red-300/80">tgw-core-01</code> BGP 表溢位</p>
+                </div>
+                <div class="sub-agent-card" style="background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2);">
+                    <p class="text-red-400 font-semibold mb-1 text-xs"><i class="fas fa-shield-alt mr-1"></i>Agent B · 審查者</p>
+                    <p class="text-gray-400">確認重啟 BGP 進程不影響主幹路由，無業務中斷風險 — <span class="text-green-400">通過</span></p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-4">AI 根因分析：偵測到 14 個設備主機同時失去連線。經分析網路拓樸，確認為 <code class="text-red-300 bg-red-900/20 px-1 rounded">tgw-core-01</code> 節點的 BGP 路由表溢位導致崩潰。</p>
+            <div class="flex space-x-3">
+                <button onclick="resolveTask('task-net', 'red')" class="bg-red-600 hover:bg-red-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(220,38,38,0.4)]">
+                    <i class="fas fa-tools mr-2"></i>一鍵重啟 BGP 路由進程
+                </button>
+            </div>
+        </div>
+
+        <!-- Task 5: API Gateway -->
+        <div class="glass-panel rounded-xl p-5 stream-card border-l-4 border-orange-500 relative" id="task-app">
+            <div class="absolute top-4 right-4 bg-orange-500/20 text-orange-400 text-xs px-2 py-1 rounded font-mono">HIGH PRIORITY</div>
+            <div class="flex flex-wrap gap-2 mb-3">
+                <span class="loop-badge lb-auto"><i class="fas fa-rotate mr-1"></i>① 自動化觸發</span>
+                <span class="loop-badge lb-skill"><i class="fas fa-book mr-1"></i>③ APP_SKILLS</span>
+                <span class="loop-badge lb-conn"><i class="fas fa-plug mr-1"></i>④ k8s API 連接器</span>
+                <span class="loop-badge lb-agent"><i class="fas fa-robot mr-1"></i>⑤ 雙代理審查通過</span>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-white"><i class="fas fa-layer-group mr-2 text-orange-400"></i>API 閘道服務崩潰 (已收斂 18 個異常指標)</h3>
+            <div class="sub-agent-row mb-3">
+                <div class="sub-agent-card" style="background:rgba(234,88,12,0.05); border-color:rgba(234,88,12,0.2);">
+                    <p class="text-orange-400 font-semibold mb-1 text-xs"><i class="fas fa-search mr-1"></i>Agent A · 調查者</p>
+                    <p class="text-gray-400">收斂 18 個異常至 <code class="text-orange-300/80">API-Gateway-01</code>，起草備援切換腳本</p>
+                </div>
+                <div class="sub-agent-card" style="background:rgba(239,68,68,0.05); border-color:rgba(239,68,68,0.2);">
+                    <p class="text-red-400 font-semibold mb-1 text-xs"><i class="fas fa-shield-alt mr-1"></i>Agent B · 審查者</p>
+                    <p class="text-gray-400">驗證備援節點容量充足，切換順序符合 APP_SKILLS — <span class="text-green-400">通過</span></p>
+                </div>
+            </div>
+            <p class="text-sm text-gray-300 mb-4">
+                AI 根因分析：在 24 個異常監控項目中，有 18 個皆源自於 <code class="text-orange-300 bg-orange-900/20 px-1 rounded">API-Gateway-01</code> 服務記憶體洩漏 (Memory Leak)。建議直接將流量切換至備援節點並重啟。
+            </p>
+            <div class="flex space-x-3">
+                <button onclick="resolveTask('task-app', 'orange')" class="bg-orange-600 hover:bg-orange-500 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors shadow-[0_4px_15px_rgba(234,88,12,0.4)]">
+                    <i class="fas fa-exchange-alt mr-2"></i>授權 AI 切換備援與重啟
+                </button>
+                <button onclick="showGraphModal('api_topology')" class="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded-lg text-sm transition-colors text-white border border-gray-500">
+                    <i class="fas fa-sitemap mr-2"></i>查看微服務相依拓樸圖
+                </button>
+            </div>
+        </div>
+
+    </section>
+</main>
+
+<!-- ========================================
+     LOOP ENGINEERING PANEL (LEFT DRAWER)
+     ======================================== -->
+<div id="loop-toggle-btn" onclick="toggleLoopPanel()" title="迴圈工程面板">
+    <i class="fas fa-sync-alt text-indigo-400 text-lg loop-running"></i>
+    <span style="writing-mode:vertical-rl; font-size:0.7rem; color:#a5b4fc; letter-spacing:0.1em; font-weight:600;">LOOP</span>
+    <i id="loop-toggle-arrow" class="fas fa-chevron-right text-indigo-400 text-xs"></i>
+</div>
+
+<div id="loop-panel">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 py-4 border-b border-indigo-900/40 sticky top-0 z-10" style="background:rgba(6,12,28,0.95);">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-full bg-indigo-900/50 border border-indigo-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(99,102,241,0.3)]">
+                <i class="fas fa-sync-alt text-indigo-400 text-base loop-running"></i>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-white">迴圈工程面板</p>
+                <p class="text-xs text-indigo-400 flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 inline-block animate-pulse"></span>
+                    Loop #47 · 上次執行 2 分鐘前
+                </p>
+            </div>
+        </div>
+        <div class="text-xs text-gray-600">Loop Engineering</div>
+    </div>
+
+    <div class="px-5 py-5 space-y-4">
+
+        <!-- Loop 流程圖 mini -->
+        <div class="rounded-xl border border-indigo-900/30 bg-indigo-950/20 p-4">
+            <p class="text-xs text-indigo-400 uppercase font-bold tracking-wider mb-3">本次迴圈執行路徑</p>
+            <!-- SVG 流程 -->
+            <svg viewBox="0 0 360 56" width="100%" style="overflow:visible;">
+                <defs>
+                    <marker id="arr-loop" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                        <path d="M2 1L8 5L2 9" fill="none" stroke="#6366f1" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </marker>
+                </defs>
+                <!-- Nodes -->
+                <g>
+                    <rect x="0" y="14" width="54" height="28" rx="6" fill="rgba(99,102,241,0.2)" stroke="rgba(99,102,241,0.5)" stroke-width="1"/>
+                    <text x="27" y="32" text-anchor="middle" fill="#a5b4fc" font-size="10" font-weight="600">自動化</text>
+                </g>
+                <line x1="56" y1="28" x2="73" y2="28" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arr-loop)" class="animate-dash"/>
+                <g>
+                    <rect x="75" y="14" width="54" height="28" rx="6" fill="rgba(20,184,166,0.15)" stroke="rgba(20,184,166,0.4)" stroke-width="1"/>
+                    <text x="102" y="32" text-anchor="middle" fill="#5eead4" font-size="10" font-weight="600">Worktree</text>
+                </g>
+                <line x1="131" y1="28" x2="148" y2="28" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arr-loop)" class="animate-dash"/>
+                <g>
+                    <rect x="150" y="14" width="44" height="28" rx="6" fill="rgba(245,158,11,0.15)" stroke="rgba(245,158,11,0.35)" stroke-width="1"/>
+                    <text x="172" y="32" text-anchor="middle" fill="#fcd34d" font-size="10" font-weight="600">技能</text>
+                </g>
+                <line x1="196" y1="28" x2="213" y2="28" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arr-loop)" class="animate-dash"/>
+                <g>
+                    <rect x="215" y="14" width="54" height="28" rx="6" fill="rgba(59,130,246,0.15)" stroke="rgba(59,130,246,0.35)" stroke-width="1"/>
+                    <text x="242" y="32" text-anchor="middle" fill="#93c5fd" font-size="10" font-weight="600">連接器</text>
+                </g>
+                <line x1="271" y1="28" x2="288" y2="28" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,2" marker-end="url(#arr-loop)" class="animate-dash"/>
+                <g>
+                    <rect x="290" y="14" width="60" height="28" rx="6" fill="rgba(34,197,94,0.15)" stroke="rgba(34,197,94,0.35)" stroke-width="1"/>
+                    <text x="320" y="32" text-anchor="middle" fill="#86efac" font-size="10" font-weight="600">子代理</text>
+                </g>
+                <!-- feedback arrow -->
+                <path d="M350 42 Q360 56 180 56 Q0 56 10 42" fill="none" stroke="rgba(168,85,247,0.4)" stroke-width="1" stroke-dasharray="4,3"/>
+                <text x="180" y="54" text-anchor="middle" fill="rgba(168,85,247,0.7)" font-size="9">記憶層回寫</text>
+            </svg>
+        </div>
+
+        <!-- 五大組成說明 -->
+        <div class="space-y-3">
+
+            <!-- 1 自動化 -->
+            <div class="loop-step p-3 active" style="background:rgba(99,102,241,0.06);">
+                <div class="flex items-start gap-3">
+                    <div class="step-icon" style="background:rgba(99,102,241,0.2);">
+                        <i class="fas fa-rotate text-indigo-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-indigo-300">① 自動化流程</span>
+                            <span class="text-xs text-indigo-500 font-mono">Automation</span>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed">Nagios Event Handler 自動觸發 Loop · 每 5 分鐘排程巡檢 · 異常立即派送任務</p>
+                        <div class="mt-2 flex gap-2 flex-wrap">
+                            <span class="text-xs bg-indigo-900/30 text-indigo-400 px-2 py-0.5 rounded font-mono">/loop --interval=5m</span>
+                            <span class="text-xs bg-indigo-900/30 text-indigo-400 px-2 py-0.5 rounded font-mono">/goal 狀態=OK</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2 Worktree -->
+            <div class="loop-step p-3" style="background:rgba(20,184,166,0.04);">
+                <div class="flex items-start gap-3">
+                    <div class="step-icon" style="background:rgba(20,184,166,0.15);">
+                        <i class="fas fa-code-branch text-teal-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-teal-300">② 工作樹</span>
+                            <span class="text-xs text-teal-600 font-mono">Worktrees</span>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed">3 個並行任務各自在獨立 Worktree 運行，隔離腳本撰寫環境，確保不汙染生產設定</p>
+                        <div class="mt-2 grid grid-cols-3 gap-1">
+                            <span class="text-xs bg-teal-900/20 text-teal-500 px-2 py-0.5 rounded text-center font-mono">#A1</span>
+                            <span class="text-xs bg-teal-900/20 text-teal-500 px-2 py-0.5 rounded text-center font-mono">#A2</span>
+                            <span class="text-xs bg-teal-900/20 text-teal-500 px-2 py-0.5 rounded text-center font-mono">#A3</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3 技能 -->
+            <div class="loop-step p-3" style="background:rgba(245,158,11,0.04);">
+                <div class="flex items-start gap-3">
+                    <div class="step-icon" style="background:rgba(245,158,11,0.15);">
+                        <i class="fas fa-book text-amber-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-amber-300">③ 技能</span>
+                            <span class="text-xs text-amber-700 font-mono">Skills</span>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed">消除冷啟動猜測。代理程式執行前必讀技能檔，載入團隊累積的維運規範</p>
+                        <div class="mt-2 space-y-1">
+                            <div class="text-xs font-mono text-amber-600/80 flex items-center gap-1"><i class="fas fa-file-code text-amber-800 w-3"></i>NAGIOS_SKILLS.md</div>
+                            <div class="text-xs font-mono text-amber-600/80 flex items-center gap-1"><i class="fas fa-file-code text-amber-800 w-3"></i>SECURITY_SKILLS.md</div>
+                            <div class="text-xs font-mono text-amber-600/80 flex items-center gap-1"><i class="fas fa-file-code text-amber-800 w-3"></i>DB_SKILLS.md</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4 連接器 -->
+            <div class="loop-step p-3" style="background:rgba(59,130,246,0.04);">
+                <div class="flex items-start gap-3">
+                    <div class="step-icon" style="background:rgba(59,130,246,0.15);">
+                        <i class="fas fa-plug text-blue-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-blue-300">④ 連接器</span>
+                            <span class="text-xs text-blue-700 font-mono">Connectors (MCP)</span>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed">讓 Loop 在真實環境採取行動，而非僅停留於建議</p>
+                        <div class="mt-2 flex gap-2 flex-wrap">
+                            <span class="text-xs bg-blue-900/20 text-blue-400 px-2 py-0.5 rounded">Nagios API</span>
+                            <span class="text-xs bg-blue-900/20 text-blue-400 px-2 py-0.5 rounded">IGMS 工單</span>
+                            <span class="text-xs bg-blue-900/20 text-blue-400 px-2 py-0.5 rounded">Slack</span>
+                            <span class="text-xs bg-blue-900/20 text-blue-400 px-2 py-0.5 rounded">k8s API</span>
+                            <span class="text-xs bg-blue-900/20 text-blue-400 px-2 py-0.5 rounded">ISP API</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5 子代理 -->
+            <div class="loop-step p-3" style="background:rgba(34,197,94,0.04);">
+                <div class="flex items-start gap-3">
+                    <div class="step-icon" style="background:rgba(34,197,94,0.15);">
+                        <i class="fas fa-robot text-green-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span class="text-xs font-bold text-green-300">⑤ 子代理程式</span>
+                            <span class="text-xs text-green-700 font-mono">Sub-agents</span>
+                        </div>
+                        <p class="text-xs text-gray-400 leading-relaxed">製作者與審查者分權——每張任務卡皆已通過雙重稽核，人類只需做最終授權</p>
+                        <div class="mt-2 flex gap-2">
+                            <div class="flex-1 text-xs bg-green-900/15 text-green-500 px-2 py-1.5 rounded border border-green-900/30 text-center">
+                                <i class="fas fa-pen mr-1"></i>Agent A<br><span class="text-green-700">調查 / 撰寫</span>
+                            </div>
+                            <div class="flex items-center text-gray-600 text-xs">⇆</div>
+                            <div class="flex-1 text-xs bg-red-900/15 text-red-400 px-2 py-1.5 rounded border border-red-900/30 text-center">
+                                <i class="fas fa-shield-alt mr-1"></i>Agent B<br><span class="text-red-700">審查 / 稽核</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- +1 記憶層 -->
+        <div class="rounded-xl border border-purple-900/40 bg-purple-950/20 p-4">
+            <p class="text-xs text-purple-400 uppercase font-bold tracking-wider mb-3 flex items-center gap-2">
+                <i class="fas fa-brain"></i>+1 記憶層
+            </p>
+            <p class="text-xs text-gray-400 mb-3 leading-relaxed">
+                代理程式在執行間隔遺忘一切，記憶必須存在磁碟中。Loop 結束後自動回寫狀態，防止下次重試已知失敗路徑。
+            </p>
+            <div class="space-y-2">
+                <div class="mem-file">
+                    <i class="fas fa-file-alt text-purple-400"></i>
+                    <div class="flex-1">
+                        <div class="text-purple-300">incident_state.md</div>
+                        <div class="text-purple-700 text-xs">已嘗試動作 · 告警歷史 · 防無窮迴圈</div>
+                    </div>
+                    <span class="text-green-500 text-xs">● 同步中</span>
+                </div>
+                <div class="mem-file">
+                    <i class="fas fa-list-check text-purple-400/70"></i>
+                    <div class="flex-1">
+                        <div style="color:#d8b4fe80">loop_run_log.md</div>
+                        <div class="text-purple-700 text-xs">執行紀錄 · run #47</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loop 作者語錄 -->
+        <div class="rounded-xl border border-gray-700/40 bg-gray-900/20 p-4">
+            <p class="text-xs text-gray-600 uppercase font-bold tracking-wider mb-2">Loop Engineering 核心原則</p>
+            <blockquote class="text-xs text-gray-400 italic leading-relaxed border-l-2 border-indigo-700/40 pl-3">
+                「你不應該再對代理程式進行提示。你應該設計能提示代理程式的 loop。」
+            </blockquote>
+            <p class="text-xs text-gray-600 mt-2">— 你的工作是設計 Loop，而非按下每個按鍵。</p>
+        </div>
+
+    </div>
+</div>
+
+<!-- ========================================
+     LIST MODAL
+     ======================================== -->
+<div id="detail-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center opacity-0 modal-overlay">
+    <div class="bg-[#1E293B] border border-gray-600 rounded-xl shadow-2xl w-full max-w-4xl transform scale-95 modal-content" id="list-modal-box">
+        <div class="flex justify-between items-center p-5 border-b border-gray-700 bg-gray-800/50 rounded-t-xl">
+            <h3 class="text-xl font-bold text-white flex items-center" id="modal-title">清單標題</h3>
+            <button onclick="closeModal('detail-modal', 'list-modal-box')" class="text-gray-400 hover:text-white transition-colors bg-gray-700 p-2 rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        <div class="p-2 max-h-[65vh] overflow-y-auto">
+            <table class="w-full text-left text-sm text-gray-300">
+                <thead class="text-xs uppercase bg-gray-900/50 text-gray-400 sticky top-0 backdrop-blur-md">
+                    <tr>
+                        <th class="px-5 py-4 rounded-tl-lg font-bold">標的 (Target)</th>
+                        <th class="px-5 py-4 font-bold">詳細資訊 / 數值</th>
+                        <th class="px-5 py-4 font-bold">當前狀態</th>
+                        <th class="px-5 py-4 rounded-tr-lg font-bold">AI 處置進度</th>
+                    </tr>
+                </thead>
+                <tbody id="modal-table-body" class="divide-y divide-gray-700/50"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================
+     GRAPH MODAL
+     ======================================== -->
+<div id="graph-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[60] hidden flex items-center justify-center opacity-0 modal-overlay">
+    <div class="bg-[#0f172a] border border-gray-600 rounded-2xl shadow-[0_0_40px_rgba(0,0,0,0.8)] w-full max-w-5xl transform scale-95 modal-content flex flex-col" id="graph-modal-box">
+        <div class="flex justify-between items-center p-5 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/80 to-gray-900/80 rounded-t-2xl">
+            <h3 class="text-xl font-bold text-white flex items-center tracking-wide" id="graph-title"></h3>
+            <button onclick="closeModal('graph-modal', 'graph-modal-box')" class="text-gray-400 hover:text-red-400 transition-colors bg-gray-800 hover:bg-gray-700 p-2 rounded-full w-8 h-8 flex items-center justify-center">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+        <div class="p-6 min-h-[500px] flex items-center justify-center relative overflow-hidden" id="graph-container"></div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container" class="fixed bottom-6 right-6 z-[100] flex flex-col space-y-3 pointer-events-none"></div>
+
+<!-- ========================================
+     AI CHAT DRAWER
+     ======================================== -->
+<div id="chat-toggle-btn" onclick="toggleChatDrawer()" title="AI 助理">
+    <i class="fas fa-robot text-blue-400 text-lg"></i>
+    <span style="writing-mode:vertical-rl; font-size:0.7rem; color:#93c5fd; letter-spacing:0.1em; font-weight:600;">AI 助理</span>
+    <i id="chat-toggle-arrow" class="fas fa-chevron-left text-blue-400 text-xs"></i>
+</div>
+
+<div id="ai-chat-drawer">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-blue-900/40" style="background: rgba(8,16,32,0.8);">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-blue-900/50 border border-blue-500/40 flex items-center justify-center shadow-[0_0_12px_rgba(96,165,250,0.3)]">
+                <i class="fas fa-robot text-blue-400 text-base"></i>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-white">AIOps 智能助理</p>
+                <p class="text-xs text-green-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-green-400 inline-block animate-pulse"></span> 線上中</p>
+            </div>
+        </div>
+        <button onclick="clearChat()" title="清除對話" class="text-gray-500 hover:text-gray-300 transition text-xs px-2 py-1 rounded border border-gray-700 hover:border-gray-500">
+            <i class="fas fa-trash-alt mr-1"></i>清除
+        </button>
+    </div>
+    <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3" style="scroll-behavior: smooth;">
+        <div class="chat-msg-ai">
+            👋 您好！我是 <strong>AIOps 智能助理</strong>，已與監控系統及迴圈工程層完整整合。<br><br>
+            您可以詢問我：<br>
+            • 當前異常事件的詳細分析<br>
+            • Loop 迴圈的執行狀態與記憶內容<br>
+            • AI 自動處置的執行建議<br>
+            • 子代理程式的審查結果
+        </div>
+        <div class="text-center text-xs text-gray-600 my-1">今日 — 剛剛</div>
+    </div>
+    <div class="px-4 pb-2">
+        <div class="flex flex-wrap gap-2 mb-3">
+            <span class="quick-tag" onclick="sendQuickMsg('目前有哪些高優先級告警？')">🔴 高優先告警</span>
+            <span class="quick-tag" onclick="sendQuickMsg('Loop 迴圈目前執行狀態如何？')">🔄 Loop 狀態</span>
+            <span class="quick-tag" onclick="sendQuickMsg('請給我今日資安威脅摘要')">🔒 資安摘要</span>
+            <span class="quick-tag" onclick="sendQuickMsg('子代理程式的審查結果是什麼？')">🤖 審查結果</span>
+        </div>
+    </div>
+    <div class="px-4 pb-5 border-t border-blue-900/30 pt-3" style="background: rgba(8,16,32,0.5);">
+        <div class="flex gap-2 items-end">
+            <textarea id="chat-input" rows="2" placeholder="輸入訊息，詢問系統狀況…" class="flex-1" onkeydown="handleChatKey(event)"></textarea>
+            <button onclick="sendChatMessage()" class="w-10 h-10 rounded-xl bg-blue-600 hover:bg-blue-500 text-white flex items-center justify-center transition-colors shadow-[0_4px_15px_rgba(37,99,235,0.4)] flex-shrink-0" style="margin-bottom: 2px;">
+                <i class="fas fa-paper-plane text-sm"></i>
+            </button>
+        </div>
+        <p class="text-xs text-gray-600 mt-2 text-center">按 Enter 送出 · Shift+Enter 換行</p>
+    </div>
+</div>
+
+<script>
+// ========== Loop Panel ==========
+let loopOpen = false;
+function toggleLoopPanel() {
+    loopOpen = !loopOpen;
+    const panel = document.getElementById('loop-panel');
+    const btn = document.getElementById('loop-toggle-btn');
+    const arrow = document.getElementById('loop-toggle-arrow');
+    panel.classList.toggle('open', loopOpen);
+    btn.classList.toggle('open', loopOpen);
+    if (arrow) arrow.className = loopOpen ? 'fas fa-chevron-left text-indigo-400 text-xs' : 'fas fa-chevron-right text-indigo-400 text-xs';
+}
+
+// ========== Chat Drawer ==========
+let chatOpen = false;
+function toggleChatDrawer() {
+    chatOpen = !chatOpen;
+    const drawer = document.getElementById('ai-chat-drawer');
+    const btn = document.getElementById('chat-toggle-btn');
+    const arrow = document.getElementById('chat-toggle-arrow');
+    drawer.classList.toggle('open', chatOpen);
+    btn.classList.toggle('open', chatOpen);
+    arrow.className = chatOpen ? 'fas fa-chevron-right text-blue-400 text-xs' : 'fas fa-chevron-left text-blue-400 text-xs';
+}
+
+function handleChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+}
+function sendQuickMsg(text) {
+    if (!chatOpen) toggleChatDrawer();
+    document.getElementById('chat-input').value = text;
+    sendChatMessage();
+}
+async function clearChat() {
+    try {
+        await fetch('/api/future/chat/clear', { method: 'POST' });
+        document.getElementById('chat-messages').innerHTML = `
+            <div class="chat-msg-ai">對話已清除。有什麼我可以幫您分析的嗎？</div>
+            <div class="text-center text-xs text-gray-600 my-1">剛剛</div>`;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    const msgs = document.getElementById('chat-messages');
+    
+    // User message
+    const userEl = document.createElement('div');
+    userEl.className = 'chat-msg-user';
+    userEl.textContent = text;
+    msgs.appendChild(userEl);
+    
+    // Typing indicator
+    const typingEl = document.createElement('div');
+    typingEl.className = 'chat-msg-ai flex items-center gap-1';
+    typingEl.innerHTML = `<span class="typing-dot text-blue-400 text-lg">●</span><span class="typing-dot text-blue-400 text-lg">●</span><span class="typing-dot text-blue-400 text-lg">●</span>`;
+    msgs.appendChild(typingEl);
+    msgs.scrollTop = msgs.scrollHeight;
+
+    try {
+        const formData = new URLSearchParams();
+        formData.append('message', text);
+        const res = await fetch('/api/future/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: formData.toString()
+        });
+        const data = await res.json();
+        
+        typingEl.remove();
+        const aiEl = document.createElement('div');
+        aiEl.className = 'chat-msg-ai chat-markdown';
+        
+        // Render markdown and sanitize
+        let rawHtml = marked.parse(data.response || '無回應');
+        aiEl.innerHTML = DOMPurify.sanitize(rawHtml);
+        msgs.appendChild(aiEl);
+        msgs.scrollTop = msgs.scrollHeight;
+    } catch (e) {
+        typingEl.remove();
+        const aiEl = document.createElement('div');
+        aiEl.className = 'chat-msg-ai text-red-400';
+        aiEl.textContent = '系統連線異常，請稍後再試。';
+        msgs.appendChild(aiEl);
+        msgs.scrollTop = msgs.scrollHeight;
+    }
+}
+
+function refreshStats() {
+    fetch('/api/future/stats').then(r=>r.json()).then(data => {
+        const map = {
+            'hosts-running': 'stat-hosts-running',
+            'hosts-down': 'stat-hosts-down',
+            'network-warning': 'stat-network-warning',
+            'metrics-normal': 'stat-metrics-normal',
+            'metrics-abnormal': 'stat-metrics-abnormal',
+            'security-alerts': 'stat-security-alerts'
+        };
+        for (let k in map) {
+            const el = document.getElementById(map[k]);
+            if (el && data[k] !== undefined) el.innerText = data[k];
+        }
+    }).catch(e => console.error(e));
+}
+
+function refreshTasks() {
+    fetch('/api/future/tasks').then(r=>r.json()).then(data => {
+        const activeIds = data.map(t => t.id);
+        const allTaskIds = ['task-sec', 'task-pl', 'task-cap', 'task-net', 'task-app'];
+        allTaskIds.forEach(id => {
+            if (!activeIds.includes(id)) {
+                const el = document.getElementById(id);
+                if (el) el.remove();
+            }
+        });
+        checkEmpty();
+    }).catch(e => console.error(e));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    refreshStats();
+    refreshTasks();
+});
+
+// ========== Modals ==========
+function showDetails(type, title) {
+    let icon = '';
+    if (type.includes('hosts')) icon = '<i class="fas fa-server text-blue-400 mr-3"></i>';
+    if (type.includes('network')) icon = '<i class="fas fa-wifi text-teal-400 mr-3"></i>';
+    if (type.includes('metrics')) icon = '<i class="fas fa-chart-line text-green-400 mr-3"></i>';
+    if (type.includes('security')) icon = '<i class="fas fa-shield-halved text-purple-400 mr-3"></i>';
+    document.getElementById('modal-title').innerHTML = icon + title;
+    const tbody = document.getElementById('modal-table-body');
+    tbody.innerHTML = '<tr class="text-center"><td colspan="4" class="py-4 text-gray-400"><i class="fas fa-circle-notch fa-spin"></i> 載入中...</td></tr>';
+    
+    const modal = document.getElementById('detail-modal');
+    const box = document.getElementById('list-modal-box');
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+
+    fetch(`/api/future/details?type=${type}`)
+        .then(res => res.json())
+        .then(data => {
+            tbody.innerHTML = '';
+            data.forEach(item => {
+                let statusBadge = item.ai_status;
+                if (item.ai_status.includes('已納入')) {
+                    statusBadge = `<span class="bg-blue-900/60 text-blue-300 px-3 py-1 rounded-full text-xs border border-blue-700/50"><i class="fas fa-magic mr-1.5"></i>${item.ai_status}</span>`;
+                } else {
+                    statusBadge = `<span class="text-gray-500 px-2 py-1 text-xs"><i class="fas fa-check text-gray-600 mr-1.5"></i>${item.ai_status}</span>`;
+                }
+                tbody.innerHTML += `<tr class="hover:bg-gray-700/40 transition-colors">
+                    <td class="px-5 py-4 font-semibold text-gray-200 border-b border-gray-700/30">${item.name}</td>
+                    <td class="px-5 py-4 text-gray-400 border-b border-gray-700/30">${item.detail}</td>
+                    <td class="px-5 py-4 text-gray-300 border-b border-gray-700/30 font-medium">${item.status}</td>
+                    <td class="px-5 py-4 border-b border-gray-700/30">${statusBadge}</td>
+                </tr>`;
+            });
+        }).catch(e => {
+            tbody.innerHTML = '<tr class="text-center"><td colspan="4" class="py-4 text-red-400">載入失敗</td></tr>';
+        });
+}
+
+function closeModal(modalId, boxId) {
+    const modal = document.getElementById(modalId);
+    const box = document.getElementById(boxId);
+    modal.classList.add('opacity-0');
+    box.classList.add('scale-95');
+    setTimeout(() => { modal.classList.add('hidden'); }, 300);
+}
+
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+        if (e.target === this) closeModal(this.id, this.querySelector('.modal-content').id);
+    });
+});
+
+// ========== Toast ==========
+function showToast(title, message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'bg-[#0B172A] border border-green-500/50 p-4 rounded-xl shadow-[0_4px_20px_rgba(34,197,94,0.2)] flex items-start space-x-3 transform transition-all duration-300 translate-y-10 opacity-0 pointer-events-auto min-w-[300px] max-w-md';
+    toast.innerHTML = `
+        <div class="mt-0.5 text-green-400"><i class="fas fa-check-circle text-xl"></i></div>
+        <div class="flex-1">
+            <h4 class="text-white font-bold text-sm">${title}</h4>
+            <p class="text-gray-400 text-xs mt-1 leading-relaxed">${message}</p>
+        </div>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.classList.remove('translate-y-10', 'opacity-0'), 10);
+    setTimeout(() => {
+        toast.classList.add('translate-y-10', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+    }, 4000);
+}
+
+// ========== Task Resolve ==========
+function resolveTask(taskId, colorClass) {
+    const el = document.getElementById(taskId);
+    if (!el) return;
+    const btn = el.querySelector('button');
+    const taskTitle = el.querySelector('h3').innerText;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin mr-2"></i>AI 執行中...';
+    btn.className = `bg-${colorClass}-800 text-white px-6 py-2 rounded-lg text-sm font-medium cursor-wait opacity-80`;
+
+    fetch(`/api/future/tasks/${taskId}/resolve`, { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'success') {
+                btn.innerHTML = '<i class="fas fa-check mr-2"></i>任務已完成';
+                btn.className = 'bg-green-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-[0_0_15px_rgba(34,197,94,0.5)]';
+                el.classList.replace(`border-${colorClass}-500`, 'border-green-500');
+                showToast('AI 自動化處置成功', `已排除：${taskTitle}`);
+                showToast('記憶層已更新', 'incident_state.md 已記錄本次修復動作');
+                refreshStats(); // 更新左側數字
+                setTimeout(() => {
+                    el.style.transform = 'translateX(120%)';
+                    el.style.opacity = '0';
+                    setTimeout(() => { el.remove(); checkEmpty(); }, 400);
+                }, 1200);
+            } else {
+                showToast('任務失敗', data.message);
+                btn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>失敗';
+                btn.className = 'bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-medium';
+            }
+        })
+        .catch(err => {
+            showToast('網路錯誤', '無法連線到後端 API');
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle mr-2"></i>網路錯誤';
+            btn.className = 'bg-red-600 text-white px-6 py-2 rounded-lg text-sm font-medium';
+        });
+}
+
+function checkEmpty() {
+    const stream = document.getElementById('task-stream');
+    if (stream.querySelectorAll('.stream-card').length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'glass-panel p-12 text-center rounded-xl text-gray-400 mt-10 border border-green-900/30 bg-green-900/10';
+        emptyMsg.innerHTML = `<i class="fas fa-shield-check text-6xl text-green-500 mb-6 block"></i>
+            <h3 class="text-2xl font-bold text-white mb-2">系統狀態完美 (All Green)</h3>
+            <p class="text-lg mb-4">目前無任何待辦任務，AI Loop 持續為您守護基礎架構。</p>
+            <p class="text-sm text-gray-500"><i class="fas fa-brain mr-2 text-purple-500"></i>incident_state.md 已記錄本次所有修復動作，下次 Loop 執行將參考此記憶。</p>`;
+        stream.appendChild(emptyMsg);
+    }
+}
+
+// ========== Graphs ==========
+let currentChart = null;
+function showGraphModal(type) {
+    const modal = document.getElementById('graph-modal');
+    const box = document.getElementById('graph-modal-box');
+    const titleEl = document.getElementById('graph-title');
+    const container = document.getElementById('graph-container');
+    container.innerHTML = '';
+    if (currentChart) { currentChart.destroy(); }
+
+    if (type === 'capacity') {
+        titleEl.innerHTML = '<i class="fas fa-chart-area text-yellow-400 mr-3"></i> 磁碟空間用量預測模型 (Order-DB-Primary)';
+        const canvas = document.createElement('canvas'); container.appendChild(canvas);
+        currentChart = new Chart(canvas.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: ['-3h', '-2h', '-1h', '現在', '+15m', '+30m (預測)', '+45m (耗盡)'],
+                datasets: [
+                    { label: '歷史實際用量 (%)', data: [65, 70, 82, 96, null, null, null], borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', borderWidth: 3, fill: true, tension: 0.4 },
+                    { label: 'AI 爆發預測軌跡', data: [null, null, null, 96, 98, 99.5, 100], borderColor: '#ef4444', borderDash: [5, 5], borderWidth: 3, tension: 0.4, pointBackgroundColor: '#ef4444', pointRadius: 5 },
+                    { label: 'AI 建議擴容後水位', data: [null, null, null, 96, 49, 49.7, 50], borderColor: '#22c55e', borderWidth: 3, tension: 0.4 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, color: '#94a3b8', plugins: { legend: { labels: { font: { size: 14 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { max: 100, min: 0, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { grid: { color: 'rgba(255,255,255,0.05)' } } } }
+        });
+    } else if (type === 'packet_loss') {
+        titleEl.innerHTML = '<i class="fas fa-wave-square text-teal-400 mr-3"></i> 跨廠區專線 Packet Loss 預測模型';
+        const canvas = document.createElement('canvas'); container.appendChild(canvas);
+        const thresholdPlugin = {
+            id: 'threshold',
+            beforeDraw: chart => {
+                const { ctx, chartArea: { left, right }, scales: { y } } = chart;
+                const yPos = y.getPixelForValue(15);
+                ctx.save(); ctx.beginPath(); ctx.moveTo(left, yPos); ctx.lineTo(right, yPos);
+                ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(239,68,68,0.8)'; ctx.setLineDash([5, 5]);
+                ctx.stroke(); ctx.fillStyle = 'rgba(239,68,68,0.8)'; ctx.fillText('嚴重斷線門檻 (15%)', left + 10, yPos - 10); ctx.restore();
+            }
+        };
+        currentChart = new Chart(canvas.getContext('2d'), {
+            type: 'line', plugins: [thresholdPlugin],
+            data: {
+                labels: ['-14天', '-7天', '-3天', '-1天', '現在', '+1天', '+2天', '+3天'],
+                datasets: [
+                    { label: '歷史實際 Loss (%)', data: [0.1, 0.5, 1.2, 2.5, 4.0, null, null, null], borderColor: '#14b8a6', backgroundColor: 'rgba(20,184,166,0.1)', borderWidth: 3, fill: true, tension: 0.3 },
+                    { label: 'AI 惡化趨勢預測', data: [null, null, null, null, 4.0, 8.5, 12.0, 16.5], borderColor: '#f59e0b', borderDash: [5, 5], borderWidth: 3, tension: 0.3, pointBackgroundColor: '#f59e0b', pointRadius: 5 },
+                    { label: 'AI 繞流後恢復水準', data: [null, null, null, null, 4.0, 0.1, 0.1, 0.1], borderColor: '#3b82f6', borderWidth: 3, tension: 0.3 }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, color: '#94a3b8', plugins: { legend: { labels: { font: { size: 14 } } }, tooltip: { mode: 'index', intersect: false } }, scales: { y: { max: 20, min: 0, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { grid: { color: 'rgba(255,255,255,0.05)' } } } }
+        });
+    } else if (type === 'security') {
+        titleEl.innerHTML = '<i class="fas fa-project-diagram text-purple-400 mr-3"></i> 異常行為擴散軌跡 (Ransomware Lateral Movement)';
+        container.innerHTML = `
+            <div class="w-full flex items-center justify-between px-10 relative">
+                <div class="flex flex-col items-center z-10 w-48">
+                    <div class="w-20 h-20 bg-gray-900 border-2 border-red-500/50 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.3)] mb-3"><i class="fas fa-globe text-red-500 text-3xl"></i></div>
+                    <span class="text-white font-bold">Malicious IP</span><span class="text-xs text-red-400 mt-1 font-mono">114.32.*.*</span>
+                </div>
+                <div class="flex-1 h-1 bg-red-900/50 relative"><svg class="absolute inset-0 w-full h-full"><line x1="0" y1="2" x2="100%" y2="2" stroke="#ef4444" stroke-width="3" stroke-dasharray="10,5" class="animate-dash"/></svg></div>
+                <div class="flex flex-col items-center z-10 w-48">
+                    <div class="w-24 h-24 bg-gray-900 border-2 border-purple-500 rounded-lg flex items-center justify-center shadow-[0_0_30px_rgba(168,85,247,0.5)] mb-3 animate-pulse"><i class="fas fa-desktop text-purple-400 text-4xl"></i></div>
+                    <span class="text-white font-bold">HR-Desktop-04</span><span class="text-xs text-purple-400 mt-1 font-mono">內部感染源</span>
+                </div>
+                <div class="flex-1 h-1 bg-gray-700 relative flex items-center justify-center">
+                    <svg class="absolute inset-0 w-1/2 h-full"><line x1="0" y1="2" x2="100%" y2="2" stroke="#a855f7" stroke-width="3" stroke-dasharray="8,4" class="animate-dash"/></svg>
+                    <div class="z-20 bg-blue-900 border-2 border-blue-400 p-2 rounded-full shadow-[0_0_20px_rgba(96,165,250,0.8)]"><i class="fas fa-shield-alt text-blue-300 text-2xl"></i></div>
+                    <span class="absolute -top-10 left-1/2 transform -translate-x-1/2 text-xs bg-blue-900 text-blue-300 px-3 py-1.5 rounded-full border border-blue-500 whitespace-nowrap"><i class="fas fa-bolt mr-1 text-yellow-300"></i> AI 主動隔離網段</span>
+                </div>
+                <div class="flex flex-col items-center z-10 w-48 opacity-60">
+                    <div class="w-20 h-20 bg-gray-800 border-2 border-green-500/50 rounded-full flex items-center justify-center mb-3"><i class="fas fa-server text-green-500 text-3xl"></i></div>
+                    <span class="text-gray-300 font-bold">AD-Controller</span><span class="text-xs text-green-500 mt-1"><i class="fas fa-check-circle mr-1"></i>安全未受害</span>
+                </div>
+            </div>`;
+    } else if (type === 'api_topology') {
+        titleEl.innerHTML = '<i class="fas fa-sitemap text-orange-400 mr-3"></i> 微服務相依拓樸與瓶頸分析';
+        container.innerHTML = `
+            <div class="w-full flex items-center justify-center space-x-12 relative px-8">
+                <div class="flex flex-col items-center z-10 w-32">
+                    <div class="w-20 h-20 bg-gray-800 border-2 border-blue-400 rounded-full flex items-center justify-center mb-3 shadow-[0_0_15px_rgba(96,165,250,0.4)]"><i class="fas fa-users text-blue-400 text-3xl"></i></div>
+                    <span class="text-gray-200 font-bold text-sm mb-1">外部請求流量</span>
+                    <span class="text-xs bg-blue-900/50 text-blue-300 px-2 py-0.5 rounded border border-blue-700">10k req/sec</span>
+                </div>
+                <div class="flex-1 h-1 bg-blue-900/50 relative min-w-[60px]">
+                    <svg class="absolute inset-0 w-full h-full"><line x1="0" y1="2" x2="100%" y2="2" stroke="#60a5fa" stroke-width="3" stroke-dasharray="8,5" class="animate-slow-dash"/></svg>
+                </div>
+                <div class="flex flex-col items-center z-10 w-56 relative">
+                    <div class="absolute -top-14 flex space-x-2">
+                        <span class="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded border border-red-500 animate-bounce" style="animation-delay:0.1s">HTTP 500</span>
+                        <span class="bg-red-900/80 text-red-300 text-xs px-2 py-1 rounded border border-red-500 animate-bounce" style="animation-delay:0.3s">OOM (98%)</span>
+                    </div>
+                    <div class="w-28 h-28 bg-gray-900 border-4 border-orange-500 rounded-2xl flex items-center justify-center shadow-[0_0_35px_rgba(249,115,22,0.6)] mb-3 animate-pulse">
+                        <i class="fas fa-layer-group text-orange-400 text-5xl"></i>
+                    </div>
+                    <span class="text-white font-bold text-lg">API-Gateway-01</span>
+                    <span class="text-xs text-orange-400 mt-1 font-mono bg-orange-900/30 px-2 py-0.5 rounded">Memory Leak</span>
+                </div>
+                <div class="w-20 h-48 flex flex-col justify-between relative">
+                    <svg class="absolute top-0 left-0 w-full h-1/2"><path d="M 0 100 Q 40 100 50 50 T 100 0" fill="transparent" stroke="#4b5563" stroke-width="2" stroke-dasharray="4" class="animate-dash"/></svg>
+                    <svg class="absolute top-1/2 left-0 w-full h-1 -translate-y-1/2"><line x1="0" y1="2" x2="100%" y2="2" stroke="#4b5563" stroke-width="2" stroke-dasharray="4" class="animate-dash"/></svg>
+                    <svg class="absolute bottom-0 left-0 w-full h-1/2"><path d="M 0 0 Q 40 0 50 50 T 100 100" fill="transparent" stroke="#4b5563" stroke-width="2" stroke-dasharray="4" class="animate-dash"/></svg>
+                </div>
+                <div class="flex flex-col space-y-5 z-10 w-52">
+                    <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30">
+                        <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-id-card text-green-400"></i></div>
+                        <div><span class="text-gray-200 text-sm font-bold block">Auth-Service</span><span class="text-xs text-green-500"><i class="fas fa-check-circle mr-1"></i>正常 (25ms)</span></div>
+                    </div>
+                    <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30">
+                        <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-box text-green-400"></i></div>
+                        <div><span class="text-gray-200 text-sm font-bold block">Order-Service</span><span class="text-xs text-green-500"><i class="fas fa-check-circle mr-1"></i>正常 (42ms)</span></div>
+                    </div>
+                    <div class="flex items-center space-x-4 bg-gray-800/80 p-3 rounded-xl border border-green-500/30">
+                        <div class="w-10 h-10 bg-green-900/30 rounded-lg flex items-center justify-center"><i class="fas fa-credit-card text-green-400"></i></div>
+                        <div><span class="text-gray-200 text-sm font-bold block">Payment-Service</span><span class="text-xs text-green-500"><i class="fas fa-check-circle mr-1"></i>正常 (38ms)</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="absolute bottom-6 w-full text-center">
+                <p class="text-gray-300 text-sm bg-gray-900/60 inline-block px-6 py-2 rounded-full border border-gray-700 backdrop-blur-sm">
+                    <i class="fas fa-info-circle text-blue-400 mr-2"></i>AI 診斷：18 個異常指標收斂於 <strong class="text-orange-400">API-Gateway-01</strong> 資源耗盡
+                </p>
+            </div>`;
+    }
+
+    modal.classList.remove('hidden');
+    setTimeout(() => { modal.classList.remove('opacity-0'); box.classList.remove('scale-95'); }, 10);
+}
+</script>
+</body>
+</html>

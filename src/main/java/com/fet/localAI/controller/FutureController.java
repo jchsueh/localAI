@@ -28,7 +28,7 @@ public class FutureController {
     public String futurePage(Model model) {
         Map<String, String> config = ollamaService.getCurrentConfig();
         model.addAttribute("modelName", config.get("model"));
-        return "future";
+        return "future_loop";
     }
 
     /**
@@ -102,6 +102,14 @@ public class FutureController {
                 String systemPrompt = """
                         您是 AIOps 智能運維特助，已與企業監控系統（AIOps 監控中心）完整整合。
                         您將協助 SRE 團隊分析伺服器健康、網路品質、資安威脅並給出處置建議。
+                        
+                        您的運作基於「5+1 人機協同迴圈」架構，包含：
+                        1. Automation（自動化處置）
+                        2. Worktrees（環境隔離）
+                        3. Skills（技能擴充）
+                        4. Connectors（API 介接）
+                        5. Sub-agents（子代理解決方案）
+                        以及核心的 Memory（長期記憶機制）。
                         
                         當前系統的異常告警如下：
                         1. 【緊急】偵測到內部主機橫向攻擊 (勒索病毒防禦) - 感染源 HR-Desktop-04。
